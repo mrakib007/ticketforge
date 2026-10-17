@@ -1,0 +1,306 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  --ink: #14211f;
+  --muted: #66716b;
+  --surface: #f6f7f2;
+  --line: #d9ded6;
+  --green: #187d59;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+.shell {
+  max-width: 1460px;
+  padding: 0 clamp(24px, 6.2vw, 100px);
+  margin: 0 auto;
+}
+.topbar {
+  min-height: 104px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+}
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--ink);
+  color: white;
+  font-size: 14px;
+  letter-spacing: -0.15em;
+  border-radius: 4px;
+  padding-right: 3px;
+}
+.brand-mark span {
+  color: #78d8ab;
+}
+.brand-dot {
+  color: var(--green);
+}
+.edition,
+.section-index,
+.hero-meta,
+.status-label,
+.status-badge,
+.principle-number,
+footer,
+.eyebrow,
+.status-footnote {
+  font-family: 'Courier New', monospace;
+}
+.edition {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.edition-divider {
+  margin: 0 10px;
+  color: #a8b2a9;
+}
+.hero {
+  padding: clamp(96px, 11vw, 166px) 0 86px;
+  border-bottom: 1px solid var(--line);
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+.eyebrow-line {
+  width: 24px;
+  height: 2px;
+  background: var(--green);
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h1 {
+  font-size: clamp(58px, 8.3vw, 126px);
+  line-height: 0.98;
+  letter-spacing: -0.085em;
+  margin: 34px 0 32px;
+  font-weight: 800;
+}
+h1 em {
+  color: var(--green);
+  font-weight: 400;
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.075em;
+}
+.hero-description {
+  max-width: 650px;
+  font-size: clamp(17px, 1.6vw, 21px);
+  line-height: 1.65;
+  color: #55615b;
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin-top: 56px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #7d8980;
+}
+.status-section,
+.principles {
+  padding: 72px 0 88px;
+  border-bottom: 1px solid var(--line);
+}
+.section-index {
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 0.13em;
+  font-weight: 700;
+}
+.section-heading h2 {
+  margin: 16px 0 36px;
+  font-size: clamp(28px, 3vw, 42px);
+  letter-spacing: -0.055em;
+}
+.status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: clamp(24px, 4vw, 48px);
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 50px #14211f08;
+  border-radius: 8px;
+}
+.status-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 25px;
+}
+.status-indicator {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9f7ef;
+}
+.status-indicator span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #249967;
+  box-shadow: 0 0 0 5px #24996725;
+}
+.status-indicator.is-down {
+  background: #fff1ea;
+}
+.status-indicator.is-down span {
+  background: #c96742;
+  box-shadow: 0 0 0 5px #c9674225;
+}
+.status-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #7b897e;
+  font-weight: 700;
+  margin: 2px 0 10px;
+}
+.status-card h3 {
+  font-size: clamp(20px, 2vw, 27px);
+  letter-spacing: -0.04em;
+  margin-bottom: 8px;
+}
+.status-card p {
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.status-badge {
+  align-self: flex-start;
+  white-space: nowrap;
+  border-radius: 3px;
+  padding: 9px 12px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.badge-ok {
+  color: #15774e;
+  background: #e9f7ef;
+}
+.badge-down {
+  color: #a95130;
+  background: #fff1ea;
+}
+.status-footnote {
+  font-size: 11px;
+  margin: 18px 0 0;
+  color: #87928a;
+}
+.principle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+.principle {
+  padding-top: 24px;
+  border-top: 2px solid var(--ink);
+}
+.principle-number {
+  font-size: 12px;
+  color: var(--green);
+  font-weight: 700;
+}
+.principle h3 {
+  font-size: 19px;
+  margin: 28px 0 11px;
+  letter-spacing: -0.035em;
+}
+.principle p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 320px;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px 0 50px;
+  color: #7b897e;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+@media (max-width: 700px) {
+  .topbar {
+    min-height: 80px;
+  }
+  .edition {
+    display: none;
+  }
+  .hero {
+    padding: 88px 0 64px;
+  }
+  .hero-meta {
+    margin-top: 40px;
+  }
+  .status-section,
+  .principles {
+    padding: 55px 0 64px;
+  }
+  .status-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .status-left {
+    gap: 16px;
+  }
+  .status-indicator {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+  .principle-grid {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+  .principle h3 {
+    margin-top: 16px;
+  }
+}

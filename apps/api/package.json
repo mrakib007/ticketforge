@@ -1,0 +1,30 @@
+{
+  "name": "@ticketforge/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "start": "node --env-file=.env dist/server.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --exclude test/postgres.integration.test.ts",
+    "test:db": "vitest run test/postgres.integration.test.ts"
+  },
+  "dependencies": {
+    "@ticketforge/contracts": "workspace:*",
+    "fastify": "5.7.4",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@testcontainers/postgresql": "11.7.2",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.5",
+    "eslint": "9.39.1",
+    "typescript-eslint": "8.46.4",
+    "tsx": "4.20.6",
+    "vitest": "3.2.4"
+  }
+}
