@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.js';
-import { createPool } from '../src/db/pool.js';
+import { databaseOptions } from '../src/db/client.js';
 
 const local = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
@@ -12,14 +12,16 @@ describe('database configuration', () => {
   });
 
   it('uses local PostgreSQL without TLS by default', () => {
-    const pool = createPool(loadConfig(local));
-    expect(pool.options.ssl).toBe(false);
-    expect(pool.options.max).toBe(10);
+    const options = databaseOptions(loadConfig(local));
+    expect(options.ssl).toBe(false);
+    expect(options.max).toBe(10);
+    expect(options.connectionTimeoutMillis).toBe(2000);
+    expect(options.query_timeout).toBe(2000);
   });
 
   it('verifies TLS for Supabase', () => {
-    const pool = createPool(loadConfig({ ...local, DB_SSL: 'true' }));
-    expect(pool.options.ssl).toEqual({ rejectUnauthorized: true });
+    const options = databaseOptions(loadConfig({ ...local, DB_SSL: 'true' }));
+    expect(options.ssl).toEqual({ rejectUnauthorized: true });
   });
 
   it('rejects an invalid pool size', () => {

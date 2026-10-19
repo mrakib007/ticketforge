@@ -10,7 +10,7 @@ A learning-oriented, production-inspired ticketing platform. **Step 1 is only th
 
 ## Get running
 
-From the repository root:
+First-time setup from the repository root:
 
 ```bash
 npm ci
@@ -18,10 +18,24 @@ cp .env.example .env
 cp .env.example apps/api/.env
 docker compose up -d
 docker compose ps
+npm run db:deploy
 npm run dev
 ```
 
 Windows PowerShell equivalents for the two copy commands: `Copy-Item .env.example .env` and `Copy-Item .env.example apps/api/.env`.
+
+After a reboot, start Docker Desktop (or the Docker daemon), then run from the repository root:
+
+```bash
+docker compose up -d
+docker compose ps
+npm run db:deploy
+npm run dev
+```
+
+Keep the existing `.env` and `apps/api/.env` files; copying the examples again would overwrite your local credentials. Run `npm ci` after dependency or lockfile changes (or if `node_modules` is missing). `db:deploy` is safe to repeat and applies only pending migrations; the foundation currently has none.
+
+If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness.
 
 Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
 
@@ -29,33 +43,69 @@ Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server an
 
 ## Commands
 
-| Command                        | Purpose                                                           |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `npm ci`                       | Reproducible install from committed lockfile                      |
-| `npm run dev`                  | Both apps, watch mode                                             |
-| `npm test`                     | API injection/config and frontend fetch tests; no Docker required |
-| `npm run test:db`              | Real PostgreSQL Testcontainers integration test; requires Docker  |
-| `npm run typecheck`            | Both strict TypeScript projects                                   |
-| `npm run lint`                 | Both ESLint projects                                              |
-| `npm run format:check`         | Check Prettier formatting                                         |
-| `npm run format`               | Apply Prettier formatting                                         |
-| `npm run build`                | Build API and web production artifacts                            |
-| `docker compose ps`            | View infrastructure health                                        |
-| `docker compose logs -f kafka` | Inspect Kafka initialization                                      |
+| Command                                     | Purpose                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| `npm ci`                                    | Reproducible install from committed lockfile                      |
+| `npm run dev`                               | Both apps, watch mode                                             |
+| `npm test`                                  | API injection/config and frontend fetch tests; no Docker required |
+| `npm run test:db`                           | Real PostgreSQL Testcontainers integration test; requires Docker  |
+| `npm run db:generate`                       | Generate Prisma Client after schema changes                       |
+| `npm run db:validate`                       | Validate the Prisma schema                                        |
+| `npm run db:migrate -- --name create_users` | Create/apply a development migration                              |
+| `npm run db:deploy`                         | Apply committed migrations without creating new ones              |
+| `npm run db:status`                         | Show Prisma migration status                                      |
+| `npm run db:studio`                         | Open Prisma's local database viewer                               |
+| `npm run typecheck`                         | Both strict TypeScript projects                                   |
+| `npm run lint`                              | Both ESLint projects                                              |
+| `npm run format:check`                      | Check Prettier formatting                                         |
+| `npm run format`                            | Apply Prettier formatting                                         |
+| `npm run build`                             | Build API and web production artifacts                            |
+| `docker compose ps`                         | View infrastructure health                                        |
+| `docker compose logs -f kafka`              | Inspect Kafka initialization                                      |
 
 ## Environment
 
 `.env.example` documents every supported variable. Docker Compose reads **root `.env`**; the API reads **`apps/api/.env`** via Node's env-file support. Next.js uses `API_INTERNAL_URL` on its server, defaulting to `http://127.0.0.1:3001`; set `apps/web/.env.local` only if your API address differs. Never set `NEXT_PUBLIC_DATABASE_URL` or pass the database URL to a browser component.
 
-For **local PostgreSQL**, use the example `DATABASE_URL`, `DB_SSL=false`, and Compose. For **Supabase**, set a PostgreSQL connection string in `apps/api/.env`, set `DB_SSL=true`, and use a connection endpoint reachable from your machine (Supabase's pooler can be necessary for IPv4-only networks). TLS certificate verification stays enabled. Keep DB pool size small if using a hosted provider; the API needs no other Supabase services. Note that `pg` connection URL `sslmode` parameters can override `ssl` settings: prefer a plain connection URL and `DB_SSL=true` instead. The local environment does not require Supabase.
+For **local PostgreSQL**, use the example `DATABASE_URL`, `DB_SSL=false`, and Compose. For **Supabase**, set a PostgreSQL connection string in `apps/api/.env`, set `DB_SSL=true`, and use a connection endpoint reachable from your machine. Set optional `DIRECT_URL` for Prisma CLI commands if migrations need a different, direct/session connection instead of the application's pooled URL. TLS certificate verification stays enabled. Keep DB pool size small if using a hosted provider; the API needs no other Supabase services. The PostgreSQL driver can override TLS options from URL parameters: prefer a plain connection URL and `DB_SSL=true` instead. The local environment does not require Supabase.
+
+## Prisma and database changes
+
+Prisma **7.10.1** is pinned for the CLI, client and PostgreSQL adapter. `npm ci`
+generates the client automatically; generation needs neither Docker nor a database
+connection. If you install with scripts disabled, run `npm run db:generate` manually.
+Generated files are ignored by Git. The backend uses Prisma Client; the frontend
+never imports it or accesses PostgreSQL directly.
+
+The schema lives in `apps/api/prisma/schema.prisma`. It has no application models
+yet: users/authentication and events remain separate tasks. Prisma Client already
+handles the readiness query. Prisma uses the `pg` driver internally via its adapter.
+
+For a future schema change:
+
+1. Update the Prisma schema.
+2. Run `npm run db:migrate -- --name describe_change` against your **development** database.
+3. Review and commit the generated SQL in `apps/api/prisma/migrations/`.
+4. Run `npm run db:generate`, then tests and build.
+
+`migrate dev` uses a shadow database and needs permission to create it (the local
+Docker user has that permission). Never accept a database reset on important data.
+Use `npm run db:deploy` to apply reviewed, committed migrations in deployment;
+it does not create migrations or reset the database. Prisma tracks applied files
+in `_prisma_migrations`. With no migration files yet, there is nothing to apply.
+Do not edit already-applied migration files or use `db push` as migration history.
+
+`npm run db:studio` opens a visual database viewer, normally at **http://localhost:5555**.
+Keep it local; it can edit real data. There are no application tables to browse yet.
 
 ## Repository map
 
 ```text
 apps/web/                 Next.js App Router UI (server-side API health fetch)
-apps/api/                 Fastify modular monolith (health module, pg pool)
+apps/api/                 Fastify modular monolith (health module, Prisma Client)
+apps/api/prisma/          Prisma schema and committed SQL migrations
 packages/contracts/       Shared API response types (no secrets)
-database/migrations/      Reserved for SQL migrations in a later step
+database/migrations/      Unused placeholder; active migrations are in apps/api/prisma/
 database/seeds/           Reserved for future seeds
 infrastructure/           Local infrastructure notes
 docs/architecture/        Architecture decisions and alternatives

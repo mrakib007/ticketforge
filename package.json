@@ -10,11 +10,18 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "postinstall": "npm run db:generate",
     "dev": "concurrently -k -n api,web \"npm run dev -w @ticketforge/api\" \"npm run dev -w @ticketforge/web\"",
     "build": "npm run build -w @ticketforge/api -w @ticketforge/web",
     "typecheck": "npm run typecheck -w @ticketforge/api -w @ticketforge/web",
     "test": "npm run test -w @ticketforge/api -w @ticketforge/web",
     "test:db": "npm run test:db -w @ticketforge/api",
+    "db:migrate": "npm run db:migrate -w @ticketforge/api --",
+    "db:generate": "npm run db:generate -w @ticketforge/api",
+    "db:validate": "npm run db:validate -w @ticketforge/api",
+    "db:deploy": "npm run db:deploy -w @ticketforge/api",
+    "db:status": "npm run db:status -w @ticketforge/api",
+    "db:studio": "npm run db:studio -w @ticketforge/api --",
     "lint": "npm run lint -w @ticketforge/api -w @ticketforge/web",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
