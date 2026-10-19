@@ -13,7 +13,7 @@
     "test:db": "vitest run test/postgres.integration.test.ts"
   },
   "dependencies": {
-    "@ticketforge/contracts": "workspace:*",
+    "@ticketforge/contracts": "0.1.0",
     "fastify": "5.7.4",
     "pg": "8.16.3"
   },

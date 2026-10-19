@@ -1,6 +1,6 @@
 # TicketForge engineering rules
 
-- This repository is a pnpm monorepo: `apps/web` is the Next.js user interface, `apps/api` is a Fastify modular monolith, and `packages/contracts` contains shared transport types only.
+- This repository is an npm workspaces monorepo: `apps/web` is the Next.js user interface, `apps/api` is a Fastify modular monolith, and `packages/contracts` contains shared transport types only.
 - Use Node 24 LTS and strict TypeScript. Keep runtime validation at process boundaries; never trust external inputs just because they have TypeScript types.
 - Backend modules own their routes and domain logic. Keep transport, database access, and infrastructure wiring separate. Do not query PostgreSQL from the frontend.
 - PostgreSQL is the authority for future bookings and seat inventory. Redis is not authoritative. Future Kafka publishing must use a transactional outbox, not a direct write beside a database transaction.

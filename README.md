@@ -4,7 +4,7 @@ A learning-oriented, production-inspired ticketing platform. **Step 1 is only th
 
 ## Requirements
 
-- Node.js **24 LTS**, Corepack and pnpm **10.28.2** (`corepack pnpm` also works without a global pnpm binary).
+- Node.js **24 LTS** and npm **11.9.0** (included with Node.js 24.14.0).
 - Docker Desktop with Compose v2, running, for local PostgreSQL, Redis, Kafka and the container-backed test.
 - Free local ports **3000**, **3001**, **5432**, **6379**, **9092** (configurable infrastructure ports in `.env`).
 
@@ -13,35 +13,35 @@ A learning-oriented, production-inspired ticketing platform. **Step 1 is only th
 From the repository root:
 
 ```bash
-corepack pnpm install
+npm ci
 cp .env.example .env
 cp .env.example apps/api/.env
 docker compose up -d
 docker compose ps
-corepack pnpm dev
+npm run dev
 ```
 
 Windows PowerShell equivalents for the two copy commands: `Copy-Item .env.example .env` and `Copy-Item .env.example apps/api/.env`.
 
 Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
 
-`corepack pnpm dev` starts both apps; use `corepack pnpm --filter @ticketforge/api dev` and `corepack pnpm --filter @ticketforge/web dev` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive).
+`npm run dev` starts both apps; use `npm run dev -w @ticketforge/api` and `npm run dev -w @ticketforge/web` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive).
 
 ## Commands
 
-| Command                                   | Purpose                                                           |
-| ----------------------------------------- | ----------------------------------------------------------------- |
-| `corepack pnpm install --frozen-lockfile` | Reproducible install from committed lockfile                      |
-| `corepack pnpm dev`                       | Both apps, watch mode                                             |
-| `corepack pnpm test`                      | API injection/config and frontend fetch tests; no Docker required |
-| `corepack pnpm test:db`                   | Real PostgreSQL Testcontainers integration test; requires Docker  |
-| `corepack pnpm typecheck`                 | Both strict TypeScript projects                                   |
-| `corepack pnpm lint`                      | Both ESLint projects                                              |
-| `corepack pnpm format:check`              | Check Prettier formatting                                         |
-| `corepack pnpm format`                    | Apply Prettier formatting                                         |
-| `corepack pnpm build`                     | Build API and web production artifacts                            |
-| `docker compose ps`                       | View infrastructure health                                        |
-| `docker compose logs -f kafka`            | Inspect Kafka initialization                                      |
+| Command                        | Purpose                                                           |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `npm ci`                       | Reproducible install from committed lockfile                      |
+| `npm run dev`                  | Both apps, watch mode                                             |
+| `npm test`                     | API injection/config and frontend fetch tests; no Docker required |
+| `npm run test:db`              | Real PostgreSQL Testcontainers integration test; requires Docker  |
+| `npm run typecheck`            | Both strict TypeScript projects                                   |
+| `npm run lint`                 | Both ESLint projects                                              |
+| `npm run format:check`         | Check Prettier formatting                                         |
+| `npm run format`               | Apply Prettier formatting                                         |
+| `npm run build`                | Build API and web production artifacts                            |
+| `docker compose ps`            | View infrastructure health                                        |
+| `docker compose logs -f kafka` | Inspect Kafka initialization                                      |
 
 ## Environment
 
