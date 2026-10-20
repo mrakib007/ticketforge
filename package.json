@@ -16,6 +16,7 @@
     "typecheck": "npm run typecheck -w @ticketforge/api -w @ticketforge/web",
     "test": "npm run test -w @ticketforge/api -w @ticketforge/web",
     "test:db": "npm run test:db -w @ticketforge/api",
+    "test:redis": "npm run test:redis -w @ticketforge/api",
     "db:migrate": "npm run db:migrate -w @ticketforge/api --",
     "db:generate": "npm run db:generate -w @ticketforge/api",
     "db:validate": "npm run db:validate -w @ticketforge/api",

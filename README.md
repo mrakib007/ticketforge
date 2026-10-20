@@ -50,6 +50,7 @@ Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server an
 | `npm run dev`                               | Both apps, watch mode                                             |
 | `npm test`                                  | API injection/config and frontend fetch tests; no Docker required |
 | `npm run test:db`                           | Real PostgreSQL Testcontainers integration test; requires Docker  |
+| `npm run test:redis`                        | Real Redis rate-limit integration test; requires Docker           |
 | `npm run db:generate`                       | Generate Prisma Client after schema changes                       |
 | `npm run db:validate`                       | Validate the Prisma schema                                        |
 | `npm run db:migrate -- --name create_users` | Create/apply a development migration                              |
