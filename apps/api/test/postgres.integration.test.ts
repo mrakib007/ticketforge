@@ -8,6 +8,7 @@ import { buildApp } from '../src/app.js';
 import { createDatabase, checkDatabase } from '../src/db/client.js';
 import { loadConfig } from '../src/config.js';
 import { createEventReader } from '../src/modules/events/repository.js';
+import { createAuthRepository } from '../src/modules/auth/repository.js';
 
 const execFileAsync = promisify(execFile);
 const prismaCli = createRequire(import.meta.url).resolve(
@@ -23,6 +24,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
   const app = buildApp({
     checkDatabase: () => checkDatabase(database),
     events: createEventReader(database),
+    auth: createAuthRepository(database),
   });
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -86,6 +88,84 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     expect((await app.inject(`/events/${draft.id}`)).statusCode).toBe(404);
     expect((await app.inject(`/events/${published.id}`)).statusCode).toBe(200);
     expect((await app.inject(`/events/${past.id}`)).statusCode).toBe(200);
+    const registration = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: 'Reader@Example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    expect(registration.statusCode).toBe(201);
+    const token = registration.json().token as string;
+    const headers = { authorization: `Bearer ${token}` };
+    const storedSession = await database.session.findFirstOrThrow();
+    expect(storedSession.tokenHash).not.toBe(token);
+    expect(storedSession.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(
+      (await app.inject({ url: '/auth/me', headers })).json().user.email,
+    ).toBe('reader@example.com');
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/auth/register',
+          payload: {
+            email: 'reader@example.com',
+            password: 'correct horse battery staple',
+          },
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/auth/login',
+          payload: {
+            email: 'reader@example.com',
+            password: 'incorrect password',
+          },
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/auth/login',
+          payload: {
+            email: 'reader@example.com',
+            password: 'correct horse battery staple',
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'POST', url: '/auth/logout', headers }))
+        .statusCode,
+    ).toBe(204);
+    expect((await app.inject({ url: '/auth/me', headers })).statusCode).toBe(
+      401,
+    );
+    const freshLogin = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email: 'reader@example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    const loginToken = freshLogin.json().token as string;
+    await database.session.updateMany({ data: { expiresAt: new Date(0) } });
+    expect(
+      (
+        await app.inject({
+          url: '/auth/me',
+          headers: { authorization: `Bearer ${loginToken}` },
+        })
+      ).statusCode,
+    ).toBe(401);
     await expect(
       database.event.create({
         data: {

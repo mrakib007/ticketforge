@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { fetchApiHealth } from '../lib/api-health';
+import { AuthNavigation } from './auth/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,9 +40,7 @@ export default async function Home() {
             ticketforge<span className="brand-dot">.</span>
           </span>
         </Link>
-        <span className="edition">
-          ENGINEERING LAB <span className="edition-divider">/</span> STEP 01
-        </span>
+        <AuthNavigation />
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
@@ -122,7 +121,7 @@ export default async function Home() {
       </section>
       <footer>
         <span>© TICKETFORGE</span>
-        <span>STEP 01 — FOUNDATION ONLY</span>
+        <span>EVENTS & ACCOUNTS</span>
       </footer>
     </main>
   );

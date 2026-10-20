@@ -2,6 +2,7 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { checkDatabase, createDatabase } from './db/client.js';
 import { createEventReader } from './modules/events/repository.js';
+import { createAuthRepository } from './modules/auth/repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -11,6 +12,7 @@ async function main(): Promise<void> {
   const app = buildApp({
     checkDatabase: () => checkDatabase(database),
     events: createEventReader(database),
+    auth: createAuthRepository(database),
   });
 
   let shuttingDown = false;

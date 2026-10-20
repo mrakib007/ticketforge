@@ -16,3 +16,13 @@ export interface PublicEvent {
 export interface EventListResponse {
   events: PublicEvent[];
 }
+
+export interface PublicUser {
+  id: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  user: PublicUser;
+  token: string;
+}

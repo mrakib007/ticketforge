@@ -1,6 +1,6 @@
 # TicketForge
 
-A learning-oriented, production-inspired ticketing platform. The foundation now includes a **read-only event catalogue**; there are no seats, bookings, payments, event management screens or login yet. One Git repository contains two independently runnable applications and a shared contracts package.
+A learning-oriented, production-inspired ticketing platform. The foundation includes a **read-only event catalogue** and email/password accounts; there are no seats, bookings, payments or event management screens yet. One Git repository contains two independently runnable applications and a shared contracts package.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ Keep the existing `.env` and `apps/api/.env` files; copying the examples again w
 
 If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness.
 
-Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Browse **http://127.0.0.1:3000/events** for upcoming published events and select one for its details (times displayed in UTC). The API exposes `GET /events` (up to 50 upcoming events, ordered by start) and `GET /events/:id` (published events only). Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
+Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Browse **http://127.0.0.1:3000/events** for upcoming published events and select one for its details (times displayed in UTC). Create an account at **/register**, sign in at **/login**, and view **/account**. The API exposes `GET /events` (up to 50 upcoming events, ordered by start) and `GET /events/:id` (published events only). Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
 
 `npm run dev` starts both apps; use `npm run dev -w @ticketforge/api` and `npm run dev -w @ticketforge/web` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive).
 
@@ -81,7 +81,7 @@ never imports it or accesses PostgreSQL directly.
 
 The schema lives in `apps/api/prisma/schema.prisma`. The `Event` model stores title,
 description, venue, UTC start and end timestamps, and publication state. A database
-constraint requires the end to follow the start. There are no user or booking models.
+constraint requires the end to follow the start. `User` and `Session` store accounts and hashed session tokens; there are no booking models.
 Prisma Client handles both catalogue reads and the readiness query. Prisma uses the
 `pg` driver internally via its adapter.
 
@@ -101,6 +101,10 @@ Do not edit already-applied migration files or use `db push` as migration histor
 
 `npm run db:studio` opens a visual database viewer, normally at **http://localhost:5555**.
 Keep it local; it can edit real data. The event table can be browsed there.
+
+## Authentication
+
+The API supports `POST /auth/register`, `POST /auth/login` (JSON email/password), `GET /auth/me`, and `POST /auth/logout` (the latter two require `Authorization: Bearer <token>`). Registration returns 201, duplicate emails 409, invalid input 400, and invalid login 401. Email is normalized to lowercase; passwords require 12–1024 characters and are scrypt-hashed with a random salt. PostgreSQL stores a SHA-256 hash of each random session token, not the token itself. Sessions expire after seven days and logout revokes the current session. The Next.js server handles the API token and sets an HttpOnly, SameSite=Lax cookie (Secure in production); client-side JavaScript never receives the token. Deploy behind HTTPS and enforce IP/account login rate limits at the ingress before exposing public registration and login; this project does not yet provide distributed abuse protection, email verification, password reset or MFA.
 
 ## Repository map
 
