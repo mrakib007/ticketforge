@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { AuthResponse, PublicUser } from '@ticketforge/contracts';
 import type { AuthRepository } from './repository.js';
 import { hashPassword, verifyPassword } from './password.js';
+import type { AuthRateLimiter } from './rate-limit.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const sessionDays = 7;
@@ -32,7 +33,28 @@ function tokenFrom(request: FastifyRequest): string | null {
 export function registerAuthRoutes(
   app: FastifyInstance,
   auth: AuthRepository,
+  rateLimiter?: AuthRateLimiter,
 ): void {
+  async function limit(
+    request: FastifyRequest,
+    reply: import('fastify').FastifyReply,
+    mode: 'login' | 'register',
+  ) {
+    if (!rateLimiter) return;
+    try {
+      const body = request.body as { email: string };
+      const retryAfter = await rateLimiter.check(request, mode, body.email);
+      if (retryAfter > 0) {
+        return reply
+          .header('Retry-After', String(retryAfter))
+          .code(429)
+          .send({ error: 'Too many attempts. Try again later.' });
+      }
+    } catch (error) {
+      request.log.error({ err: error }, 'Auth rate limit unavailable');
+      return reply.code(503).send({ error: 'Authentication unavailable' });
+    }
+  }
   async function issueSession(user: PublicUser): Promise<AuthResponse> {
     const token = randomBytes(32).toString('hex');
     await auth.createSession(
@@ -45,7 +67,10 @@ export function registerAuthRoutes(
 
   app.post<{ Body: { email: string; password: string } }>(
     '/auth/register',
-    { schema: credentialsSchema },
+    {
+      schema: credentialsSchema,
+      preHandler: (request, reply) => limit(request, reply, 'register'),
+    },
     async (request, reply) => {
       const email = request.body.email.trim().toLowerCase();
       if (!emailPattern.test(email) || email.length > 254)
@@ -70,7 +95,10 @@ export function registerAuthRoutes(
 
   app.post<{ Body: { email: string; password: string } }>(
     '/auth/login',
-    { schema: credentialsSchema },
+    {
+      schema: credentialsSchema,
+      preHandler: (request, reply) => limit(request, reply, 'login'),
+    },
     async (request, reply) => {
       const email = request.body.email.trim().toLowerCase();
       if (!emailPattern.test(email) || email.length > 254)

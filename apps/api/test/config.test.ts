@@ -29,4 +29,11 @@ describe('database configuration', () => {
       'DB_POOL_MAX',
     );
   });
+
+  it('uses local Redis by default and rejects invalid Redis URLs', () => {
+    expect(loadConfig(local).redisUrl).toBe('redis://127.0.0.1:6379');
+    expect(() =>
+      loadConfig({ ...local, REDIS_URL: 'https://example.com' }),
+    ).toThrow('REDIS_URL');
+  });
 });

@@ -18,7 +18,7 @@ export async function authenticate(
   password: string,
 ): Promise<
   | { status: 'ok'; user: PublicUser; token: string }
-  | { status: 'invalid' | 'duplicate' | 'unavailable' }
+  | { status: 'invalid' | 'duplicate' | 'unavailable' | 'limited' }
 > {
   try {
     const response = await fetch(apiUrl(`/auth/${mode}`), {
@@ -31,6 +31,7 @@ export async function authenticate(
     if (response.status === 400 || response.status === 401)
       return { status: 'invalid' };
     if (response.status === 409) return { status: 'duplicate' };
+    if (response.status === 429) return { status: 'limited' };
     if (!response.ok) return { status: 'unavailable' };
     const data: unknown = await response.json();
     if (!data || typeof data !== 'object') return { status: 'unavailable' };

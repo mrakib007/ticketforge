@@ -57,3 +57,10 @@ it('handles denied credentials and offline API without leaking details', async (
   expect(await currentUser('a'.repeat(64))).toBeNull();
   await expect(revokeSession('a'.repeat(64))).resolves.toBeUndefined();
 });
+
+it('reports auth throttling separately from an offline API', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 429 }));
+  expect(
+    await authenticate('login', 'reader@example.com', 'long password'),
+  ).toEqual({ status: 'limited' });
+});

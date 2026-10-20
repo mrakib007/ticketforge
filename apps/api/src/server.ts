@@ -3,9 +3,12 @@ import { loadConfig } from './config.js';
 import { checkDatabase, createDatabase } from './db/client.js';
 import { createEventReader } from './modules/events/repository.js';
 import { createAuthRepository } from './modules/auth/repository.js';
+import { createAuthRateLimiter } from './modules/auth/rate-limit.js';
+import { createRedisRateLimitStore } from './modules/auth/redis-rate-limit.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
+  const redis = createRedisRateLimitStore(config.redisUrl);
   const database = createDatabase(config, () =>
     app.log.error('PostgreSQL connection error'),
   );
@@ -13,7 +16,15 @@ async function main(): Promise<void> {
     checkDatabase: () => checkDatabase(database),
     events: createEventReader(database),
     auth: createAuthRepository(database),
+    authRateLimiter: createAuthRateLimiter(redis.store),
   });
+  void redis
+    .connect()
+    .catch(() =>
+      app.log.error(
+        'Redis connection unavailable; auth requests will be rejected',
+      ),
+    );
 
   let shuttingDown = false;
   async function shutdown(): Promise<void> {
@@ -23,7 +34,11 @@ async function main(): Promise<void> {
       try {
         await app.close();
       } finally {
-        await database.$disconnect();
+        try {
+          await database.$disconnect();
+        } finally {
+          redis.close();
+        }
       }
     } catch (error) {
       app.log.error({ err: error }, 'Shutdown failed');

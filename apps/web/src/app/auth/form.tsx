@@ -12,11 +12,13 @@ export function AuthForm({
   const message =
     error === 'duplicate'
       ? 'An account with this email already exists.'
-      : error === 'unavailable'
-        ? 'Authentication is temporarily unavailable. Try again later.'
-        : error === 'invalid'
-          ? 'Check your email and password and try again.'
-          : null;
+      : error === 'limited'
+        ? 'Too many attempts. Please wait and try again.'
+        : error === 'unavailable'
+          ? 'Authentication is temporarily unavailable. Try again later.'
+          : error === 'invalid'
+            ? 'Check your email and password and try again.'
+            : null;
   return (
     <main className="shell auth-page">
       <Link className="brand" href="/">

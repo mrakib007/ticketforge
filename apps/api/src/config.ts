@@ -4,6 +4,7 @@ export interface Config {
   dbPoolMax: number;
   host: string;
   port: number;
+  redisUrl: string;
 }
 
 function positiveInteger(
@@ -23,6 +24,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   if (!databaseUrl || !/^postgres(ql)?:\/\//.test(databaseUrl)) {
     throw new Error('DATABASE_URL must be a PostgreSQL connection URL');
   }
+  const redisUrl = env.REDIS_URL ?? 'redis://127.0.0.1:6379';
+  if (!/^rediss?:\/\//.test(redisUrl))
+    throw new Error('REDIS_URL must be a Redis connection URL');
   if (
     env.DB_SSL !== undefined &&
     env.DB_SSL !== 'true' &&
@@ -36,5 +40,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     dbPoolMax: positiveInteger(env.DB_POOL_MAX, 10, 'DB_POOL_MAX'),
     host: env.API_HOST ?? '127.0.0.1',
     port: positiveInteger(env.API_PORT, 3001, 'API_PORT'),
+    redisUrl,
   };
 }
