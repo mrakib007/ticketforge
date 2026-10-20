@@ -41,6 +41,7 @@ it('limits login by normalized account across IPs, then permits it after expiry'
       createSession: vi.fn(),
       findSession: vi.fn(),
       deleteSession: vi.fn(),
+      deleteExpiredSessions: vi.fn(),
     },
     authRateLimiter: createAuthRateLimiter(store),
   });
@@ -94,6 +95,7 @@ it('limits registration by IP before hashing, and fails closed when Redis is dow
       createSession: vi.fn(),
       findSession: vi.fn(),
       deleteSession: vi.fn(),
+      deleteExpiredSessions: vi.fn(),
     },
     authRateLimiter: createAuthRateLimiter(store),
   });
@@ -134,6 +136,7 @@ it('limits registration by IP before hashing, and fails closed when Redis is dow
       createSession: vi.fn(),
       findSession: vi.fn(),
       deleteSession: vi.fn(),
+      deleteExpiredSessions: vi.fn(),
     },
     authRateLimiter: createAuthRateLimiter({
       consume: async () => {

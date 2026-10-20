@@ -26,6 +26,7 @@ it('atomically limits auth requests and expires counters using real Redis', asyn
         createSession: vi.fn(),
         findSession: vi.fn(),
         deleteSession: vi.fn(),
+        deleteExpiredSessions: vi.fn(),
       },
       authRateLimiter: createAuthRateLimiter(redis.store),
     });

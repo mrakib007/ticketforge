@@ -19,6 +19,7 @@ export interface AuthRepository {
   ): Promise<void>;
   findSession(tokenHash: string): Promise<PublicUser | null>;
   deleteSession(tokenHash: string): Promise<void>;
+  deleteExpiredSessions(cutoff: Date): Promise<number>;
 }
 
 export function createAuthRepository(database: PrismaClient): AuthRepository {
@@ -65,6 +66,12 @@ export function createAuthRepository(database: PrismaClient): AuthRepository {
     },
     async deleteSession(tokenHash) {
       await database.session.deleteMany({ where: { tokenHash } });
+    },
+    async deleteExpiredSessions(cutoff) {
+      const result = await database.session.deleteMany({
+        where: { expiresAt: { lte: cutoff } },
+      });
+      return result.count;
     },
   };
 }

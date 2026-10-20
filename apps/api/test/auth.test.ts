@@ -30,6 +30,16 @@ const repository: AuthRepository = {
   deleteSession: vi.fn(async (tokenHash) => {
     sessions.delete(tokenHash);
   }),
+  deleteExpiredSessions: vi.fn(async (cutoff) => {
+    let deleted = 0;
+    for (const [tokenHash, session] of sessions) {
+      if (session.expiresAt <= cutoff) {
+        sessions.delete(tokenHash);
+        deleted++;
+      }
+    }
+    return deleted;
+  }),
 };
 let app: FastifyInstance;
 const request = async (

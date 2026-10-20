@@ -166,6 +166,24 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         })
       ).statusCode,
     ).toBe(401);
+    const cutoff = new Date('2026-10-20T00:00:00Z');
+    const userId = storedSession.userId;
+    await database.session.createMany({
+      data: [
+        { userId, tokenHash: 'a'.repeat(64), expiresAt: cutoff },
+        {
+          userId,
+          tokenHash: 'b'.repeat(64),
+          expiresAt: new Date(cutoff.getTime() + 1),
+        },
+      ],
+    });
+    expect(
+      await createAuthRepository(database).deleteExpiredSessions(cutoff),
+    ).toBe(3);
+    expect(await database.session.findMany()).toMatchObject([
+      { tokenHash: 'b'.repeat(64) },
+    ]);
     await expect(
       database.event.create({
         data: {

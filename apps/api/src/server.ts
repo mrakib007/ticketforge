@@ -3,6 +3,7 @@ import { loadConfig } from './config.js';
 import { checkDatabase, createDatabase } from './db/client.js';
 import { createEventReader } from './modules/events/repository.js';
 import { createAuthRepository } from './modules/auth/repository.js';
+import { startSessionCleanup } from './modules/auth/session-cleanup.js';
 import { createAuthRateLimiter } from './modules/auth/rate-limit.js';
 import { createRedisRateLimitStore } from './modules/auth/redis-rate-limit.js';
 
@@ -12,12 +13,14 @@ async function main(): Promise<void> {
   const database = createDatabase(config, () =>
     app.log.error('PostgreSQL connection error'),
   );
+  const auth = createAuthRepository(database);
   const app = buildApp({
     checkDatabase: () => checkDatabase(database),
     events: createEventReader(database),
-    auth: createAuthRepository(database),
+    auth,
     authRateLimiter: createAuthRateLimiter(redis.store),
   });
+  const stopSessionCleanup = startSessionCleanup(auth, app.log);
   void redis
     .connect()
     .catch(() =>
@@ -32,12 +35,16 @@ async function main(): Promise<void> {
     shuttingDown = true;
     try {
       try {
-        await app.close();
+        await stopSessionCleanup();
       } finally {
         try {
-          await database.$disconnect();
+          await app.close();
         } finally {
-          redis.close();
+          try {
+            await database.$disconnect();
+          } finally {
+            redis.close();
+          }
         }
       }
     } catch (error) {
