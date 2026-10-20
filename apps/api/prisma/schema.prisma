@@ -9,4 +9,14 @@ datasource db {
   provider = "postgresql"
 }
 
-// Application models will be added with their features, starting with authentication.
+model Event {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  venue       String
+  startsAt    DateTime @db.Timestamptz(3)
+  endsAt      DateTime @db.Timestamptz(3)
+  published   Boolean  @default(false)
+
+  @@index([published, startsAt])
+}

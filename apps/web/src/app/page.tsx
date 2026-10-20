@@ -63,6 +63,9 @@ export default async function Home() {
           <span>FASTIFY + NEXT.JS</span>
           <span>LOCAL-FIRST</span>
         </div>
+        <Link className="event-link home-event-link" href="/events">
+          Explore upcoming events →
+        </Link>
       </section>
 
       <section className="status-section" aria-labelledby="status-title">

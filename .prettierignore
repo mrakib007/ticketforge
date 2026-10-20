@@ -1,5 +1,6 @@
 package-lock.json
 .next
+.next-dev
 node_modules
 dist
 coverage

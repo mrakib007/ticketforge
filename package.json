@@ -22,6 +22,7 @@
     "db:deploy": "npm run db:deploy -w @ticketforge/api",
     "db:status": "npm run db:status -w @ticketforge/api",
     "db:studio": "npm run db:studio -w @ticketforge/api --",
+    "db:seed": "npm run db:seed -w @ticketforge/api",
     "lint": "npm run lint -w @ticketforge/api -w @ticketforge/web",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

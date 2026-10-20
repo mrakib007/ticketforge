@@ -1,6 +1,6 @@
 # TicketForge
 
-A learning-oriented, production-inspired ticketing platform. **Step 1 is only the foundation:** no events, bookings, payments or login yet. One Git repository contains two independently runnable applications and a shared contracts package.
+A learning-oriented, production-inspired ticketing platform. The foundation now includes a **read-only event catalogue**; there are no seats, bookings, payments, event management screens or login yet. One Git repository contains two independently runnable applications and a shared contracts package.
 
 ## Requirements
 
@@ -19,6 +19,7 @@ cp .env.example apps/api/.env
 docker compose up -d
 docker compose ps
 npm run db:deploy
+npm run db:seed
 npm run dev
 ```
 
@@ -33,11 +34,11 @@ npm run db:deploy
 npm run dev
 ```
 
-Keep the existing `.env` and `apps/api/.env` files; copying the examples again would overwrite your local credentials. Run `npm ci` after dependency or lockfile changes (or if `node_modules` is missing). `db:deploy` is safe to repeat and applies only pending migrations; the foundation currently has none.
+Keep the existing `.env` and `apps/api/.env` files; copying the examples again would overwrite your local credentials. Run `npm ci` after dependency or lockfile changes (or if `node_modules` is missing). `db:deploy` is safe to repeat and applies only pending migrations. `db:seed` is optional and adds two sample published events without duplicating them on repeated runs.
 
 If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness.
 
-Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
+Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Browse **http://127.0.0.1:3000/events** for upcoming published events and select one for its details (times displayed in UTC). The API exposes `GET /events` (up to 50 upcoming events, ordered by start) and `GET /events/:id` (published events only). Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
 
 `npm run dev` starts both apps; use `npm run dev -w @ticketforge/api` and `npm run dev -w @ticketforge/web` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive).
 
@@ -53,6 +54,7 @@ Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server an
 | `npm run db:validate`                       | Validate the Prisma schema                                        |
 | `npm run db:migrate -- --name create_users` | Create/apply a development migration                              |
 | `npm run db:deploy`                         | Apply committed migrations without creating new ones              |
+| `npm run db:seed`                           | Add two sample published events; safe to repeat                   |
 | `npm run db:status`                         | Show Prisma migration status                                      |
 | `npm run db:studio`                         | Open Prisma's local database viewer                               |
 | `npm run typecheck`                         | Both strict TypeScript projects                                   |
@@ -77,9 +79,11 @@ connection. If you install with scripts disabled, run `npm run db:generate` manu
 Generated files are ignored by Git. The backend uses Prisma Client; the frontend
 never imports it or accesses PostgreSQL directly.
 
-The schema lives in `apps/api/prisma/schema.prisma`. It has no application models
-yet: users/authentication and events remain separate tasks. Prisma Client already
-handles the readiness query. Prisma uses the `pg` driver internally via its adapter.
+The schema lives in `apps/api/prisma/schema.prisma`. The `Event` model stores title,
+description, venue, UTC start and end timestamps, and publication state. A database
+constraint requires the end to follow the start. There are no user or booking models.
+Prisma Client handles both catalogue reads and the readiness query. Prisma uses the
+`pg` driver internally via its adapter.
 
 For a future schema change:
 
@@ -92,17 +96,17 @@ For a future schema change:
 Docker user has that permission). Never accept a database reset on important data.
 Use `npm run db:deploy` to apply reviewed, committed migrations in deployment;
 it does not create migrations or reset the database. Prisma tracks applied files
-in `_prisma_migrations`. With no migration files yet, there is nothing to apply.
+in `_prisma_migrations`. The event table and time-ordering constraint have separate migrations.
 Do not edit already-applied migration files or use `db push` as migration history.
 
 `npm run db:studio` opens a visual database viewer, normally at **http://localhost:5555**.
-Keep it local; it can edit real data. There are no application tables to browse yet.
+Keep it local; it can edit real data. The event table can be browsed there.
 
 ## Repository map
 
 ```text
 apps/web/                 Next.js App Router UI (server-side API health fetch)
-apps/api/                 Fastify modular monolith (health module, Prisma Client)
+apps/api/                 Fastify modular monolith (health and events modules, Prisma Client)
 apps/api/prisma/          Prisma schema and committed SQL migrations
 packages/contracts/       Shared API response types (no secrets)
 database/migrations/      Unused placeholder; active migrations are in apps/api/prisma/

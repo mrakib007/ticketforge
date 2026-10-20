@@ -1,13 +1,17 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { checkDatabase, createDatabase } from './db/client.js';
+import { createEventReader } from './modules/events/repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const database = createDatabase(config, () =>
     app.log.error('PostgreSQL connection error'),
   );
-  const app = buildApp({ checkDatabase: () => checkDatabase(database) });
+  const app = buildApp({
+    checkDatabase: () => checkDatabase(database),
+    events: createEventReader(database),
+  });
 
   let shuttingDown = false;
   async function shutdown(): Promise<void> {
