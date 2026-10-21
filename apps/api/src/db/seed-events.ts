@@ -1,9 +1,6 @@
-import { loadConfig } from '../config.js';
-import { createDatabase } from './client.js';
+import type { PrismaClient } from '../generated/prisma/client.js';
 
-const database = createDatabase(loadConfig(process.env));
-
-try {
+export async function seedEvents(database: PrismaClient): Promise<number> {
   const result = await database.event.createMany({
     data: [
       {
@@ -44,9 +41,5 @@ try {
     data: { capacity: 100 },
   });
   console.log(`Created ${result.count} sample events`);
-} catch (error) {
-  console.error('Event seed failed', error);
-  process.exitCode = 1;
-} finally {
-  await database.$disconnect();
+  return result.count;
 }

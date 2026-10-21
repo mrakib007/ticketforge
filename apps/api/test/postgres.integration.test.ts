@@ -10,6 +10,8 @@ import { loadConfig } from '../src/config.js';
 import { createEventReader } from '../src/modules/events/repository.js';
 import { createAuthRepository } from '../src/modules/auth/repository.js';
 import { createBookingRepository } from '../src/modules/bookings/repository.js';
+import { seedDemoUsers } from '../src/db/seed-users.js';
+import { verifyPassword } from '../src/modules/auth/password.js';
 
 const execFileAsync = promisify(execFile);
 const prismaCli = createRequire(import.meta.url).resolve(
@@ -44,6 +46,18 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     const response = await app.inject('/health/ready');
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok' });
+    expect(await seedDemoUsers(database, databaseUrl, 'development')).toBe(2);
+    const demo = await database.user.findUniqueOrThrow({
+      where: { email: 'demo.alice@example.com' },
+    });
+    expect(await verifyPassword('DemoPassword2026!', demo.passwordHash)).toBe(
+      true,
+    );
+    expect(await seedDemoUsers(database, databaseUrl, 'development')).toBe(0);
+    expect(
+      (await database.user.findUniqueOrThrow({ where: { id: demo.id } }))
+        .passwordHash,
+    ).toBe(demo.passwordHash);
     const tomorrow = new Date(Date.now() + 86_400_000);
     const later = new Date(Date.now() + 90_000_000);
     const published = await database.event.create({
@@ -187,6 +201,15 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     expect(await database.session.findMany()).toMatchObject([
       { tokenHash: 'b'.repeat(64) },
     ]);
+    const demoLogin = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email: 'demo.alice@example.com',
+        password: 'DemoPassword2026!',
+      },
+    });
+    expect(demoLogin.statusCode).toBe(200);
     const bookingEvent = await database.event.create({
       data: {
         title: 'One seat',

@@ -34,7 +34,7 @@ npm run db:deploy
 npm run dev
 ```
 
-Keep the existing `.env` and `apps/api/.env` files; copying the examples again would overwrite your local credentials. Run `npm ci` after dependency or lockfile changes (or if `node_modules` is missing). `db:deploy` is safe to repeat and applies only pending migrations. `db:seed` is optional and adds two sample published events without duplicating them on repeated runs.
+Keep the existing `.env` and `apps/api/.env` files; copying the examples again would overwrite your local credentials. Run `npm ci` after dependency or lockfile changes (or if `node_modules` is missing). `db:deploy` is safe to repeat and applies only pending migrations. `db:seed` is optional and adds two sample published events without duplicating them on repeated runs. On local databases outside production, it also creates two demo accounts: `demo.alice@example.com` and `demo.bob@example.com`, both with password `DemoPassword2026!`. These are public test credentials; never use them for real accounts. Rerunning the seed does not reset existing passwords. Demo users are skipped for non-local databases and in production.
 
 If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness.
 
@@ -55,7 +55,7 @@ Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server an
 | `npm run db:validate`                       | Validate the Prisma schema                                        |
 | `npm run db:migrate -- --name create_users` | Create/apply a development migration                              |
 | `npm run db:deploy`                         | Apply committed migrations without creating new ones              |
-| `npm run db:seed`                           | Add two sample published events; safe to repeat                   |
+| `npm run db:seed`                           | Add sample events and local-only demo users; safe to repeat       |
 | `npm run db:status`                         | Show Prisma migration status                                      |
 | `npm run db:studio`                         | Open Prisma's local database viewer                               |
 | `npm run typecheck`                         | Both strict TypeScript projects                                   |
