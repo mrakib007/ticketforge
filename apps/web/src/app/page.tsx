@@ -1,127 +1,102 @@
+import React from 'react';
 import Link from 'next/link';
 import { fetchApiHealth } from '../lib/api-health';
+import { fetchEvents } from '../lib/events';
+import { eventSchedule } from '../lib/event-display';
 import { AuthNavigation } from './auth/navigation';
 
 export const dynamic = 'force-dynamic';
 
-const principles = [
-  {
-    number: '01',
-    title: 'One source of truth',
-    description:
-      'PostgreSQL owns inventory and bookings. Every other system supports it.',
-  },
-  {
-    number: '02',
-    title: 'Health before features',
-    description:
-      'Liveness checks the process; readiness checks the database connection.',
-  },
-  {
-    number: '03',
-    title: 'Built to evolve',
-    description:
-      'Redis and Kafka are ready locally, but stay out of the request path for now.',
-  },
-];
-
 export default async function Home() {
-  const status = await fetchApiHealth();
-  const healthy = status === 'ok';
+  const [health, catalogue] = await Promise.all([
+    fetchApiHealth(),
+    fetchEvents(),
+  ]);
 
   return (
-    <main className="shell">
+    <main className="shell home-page">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="TicketForge home">
-          <span className="brand-mark">
-            T<span>F</span>
-          </span>
-          <span>
-            ticketforge<span className="brand-dot">.</span>
-          </span>
+          ticketforge<span className="brand-dot">.</span>
         </Link>
         <AuthNavigation />
       </header>
 
       <section className="hero" aria-labelledby="hero-title">
-        <div className="eyebrow">
-          <span className="eyebrow-line" /> THE FOUNDATION
-        </div>
+        <div className="eyebrow">GOOD NIGHTS BEGIN HERE</div>
         <h1 id="hero-title">
-          Built for the
-          <br />
-          <em>moment it matters.</em>
+          Make room for <em>the memorable.</em>
         </h1>
         <p className="hero-description">
-          A ticketing platform designed from the database outward. We&apos;re
-          starting with the foundation: clear boundaries, honest health checks,
-          and infrastructure you can run yourself.
+          Discover what’s coming up, save your place, and keep every booking in
+          one place.
         </p>
+        <div className="hero-actions">
+          <Link className="button-primary" href="/events">
+            Explore events <span aria-hidden="true">↗</span>
+          </Link>
+          <Link className="button-secondary" href="/account">
+            My bookings →
+          </Link>
+        </div>
         <div className="hero-meta">
-          <span>MONOREPO / v0.1</span>
-          <span>FASTIFY + NEXT.JS</span>
-          <span>LOCAL-FIRST</span>
+          <span>CURATED EXPERIENCES</span>
+          <span>REAL-TIME AVAILABILITY</span>
+          <span>YOUR NIGHT, YOUR WAY</span>
         </div>
-        <Link className="event-link home-event-link" href="/events">
-          Explore upcoming events →
-        </Link>
       </section>
 
-      <section className="status-section" aria-labelledby="status-title">
-        <div className="section-heading">
-          <span className="section-index">01 / SYSTEM STATUS</span>
-          <h2 id="status-title">The pulse of the platform</h2>
-        </div>
-        <div className="status-card">
-          <div className="status-left">
-            <div
-              className={`status-indicator ${healthy ? 'is-healthy' : 'is-down'}`}
-              aria-hidden="true"
-            >
-              <span />
-            </div>
-            <div>
-              <span className="status-label">API + DATABASE READINESS</span>
-              <h3>
-                {healthy ? 'All systems operational' : 'Backend unavailable'}
-              </h3>
-              <p>
-                {healthy
-                  ? 'The API is connected to PostgreSQL and ready to serve requests.'
-                  : 'Start Docker services and the API, then refresh this page.'}
-              </p>
-            </div>
+      <section className="featured" aria-labelledby="featured-title">
+        <div className="section-heading featured-heading">
+          <div>
+            <span className="section-index">UP NEXT</span>
+            <h2 id="featured-title">Find your next night out.</h2>
           </div>
-          <span
-            className={`status-badge ${healthy ? 'badge-ok' : 'badge-down'}`}
-          >
-            {healthy ? 'READY' : 'NOT READY'}
-          </span>
+          <Link className="event-link" href="/events">
+            All events →
+          </Link>
         </div>
-        <p className="status-footnote">
-          Checked live on every page request · No database credentials reach
-          your browser
-        </p>
+        {catalogue.status === 'unavailable' ? (
+          <p role="status" className="catalogue-message">
+            Events aren’t loading right now. Check the connection and try again.
+          </p>
+        ) : catalogue.events.length === 0 ? (
+          <p className="catalogue-message">
+            Nothing on the calendar yet. Check back soon for upcoming events.
+          </p>
+        ) : (
+          <ul className="event-grid">
+            {catalogue.events.slice(0, 4).map((event) => (
+              <li className="event-card" key={event.id}>
+                <span className="section-index">
+                  {event.remainingSeats > 0
+                    ? `${event.remainingSeats} PLACES LEFT`
+                    : 'SOLD OUT'}
+                </span>
+                <h3>
+                  <Link href={`/events/${event.id}`}>{event.title}</Link>
+                </h3>
+                <p>{event.description}</p>
+                <div className="event-meta">
+                  <span>{event.venue}</span>
+                  <time dateTime={event.startsAt}>{eventSchedule(event)}</time>
+                </div>
+                <Link className="event-link" href={`/events/${event.id}`}>
+                  See event <span aria-hidden="true">↗</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-
-      <section className="principles" aria-labelledby="principles-title">
-        <div className="section-heading">
-          <span className="section-index">02 / THE APPROACH</span>
-          <h2 id="principles-title">Small start. Strong bones.</h2>
-        </div>
-        <div className="principle-grid">
-          {principles.map((item) => (
-            <article className="principle" key={item.number}>
-              <span className="principle-number">{item.number}</span>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-      <footer>
+      <footer className="site-footer">
         <span>© TICKETFORGE</span>
-        <span>EVENTS & ACCOUNTS</span>
+        <span>Events worth showing up for.</span>
+        <span className={health === 'ok' ? 'service-ok' : 'service-down'}>
+          {health === 'ok'
+            ? '● Booking service online'
+            : '● Booking service unavailable — please try later'}
+        </span>
       </footer>
     </main>
   );

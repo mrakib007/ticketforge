@@ -27,28 +27,41 @@ export default async function EventPage({
           This event is temporarily unavailable. Please try again later.
         </p>
       ) : (
-        <article className="catalogue-header event-detail">
-          <span className="section-index">EVENT DETAILS</span>
-          <h1>
-            {result.event.title}
-            <span className="brand-dot">.</span>
-          </h1>
-          <div className="event-meta">
-            <span>{result.event.venue}</span>
-            <time dateTime={result.event.startsAt}>
-              {eventSchedule(result.event)}
-            </time>
-          </div>
-          <p>{result.event.description}</p>
-          <p>{result.event.remainingSeats} tickets available</p>
-          <BookingForm
-            eventId={result.event.id}
-            remainingSeats={result.event.remainingSeats}
-          />
-          <Link className="event-link" href="/events">
-            ← Back to events
-          </Link>
-        </article>
+        <div className="event-detail-layout">
+          <article className="catalogue-header event-detail">
+            <span className="section-index">AN EVENING TO REMEMBER</span>
+            <h1>{result.event.title}</h1>
+            <p className="event-description">{result.event.description}</p>
+            <div className="event-facts">
+              <div>
+                <span className="section-index">WHEN</span>
+                <time dateTime={result.event.startsAt}>
+                  {eventSchedule(result.event)}
+                </time>
+              </div>
+              <div>
+                <span className="section-index">WHERE</span>
+                <span>{result.event.venue}</span>
+              </div>
+            </div>
+          </article>
+          <aside className="booking-panel" aria-label="Reserve tickets">
+            <span className="section-index">YOUR PLACE IS WAITING</span>
+            <h2>Join us.</h2>
+            <p>
+              {result.event.remainingSeats}{' '}
+              {result.event.remainingSeats === 1 ? 'place' : 'places'} available
+            </p>
+            <BookingForm
+              eventId={result.event.id}
+              remainingSeats={result.event.remainingSeats}
+            />
+            <p className="booking-fineprint">
+              Bookings are free in this demo. Manage or cancel them from your
+              account before the event starts.
+            </p>
+          </aside>
+        </div>
       )}
     </main>
   );

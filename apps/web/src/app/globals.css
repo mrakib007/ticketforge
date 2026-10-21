@@ -2,11 +2,11 @@
 
 :root {
   color-scheme: light;
-  --ink: #14211f;
-  --muted: #66716b;
-  --surface: #f6f7f2;
-  --line: #d9ded6;
-  --green: #187d59;
+  --ink: #20252c;
+  --muted: #646b72;
+  --surface: #f6f4f0;
+  --line: #e1ded7;
+  --green: #a34c35;
 }
 * {
   box-sizing: border-box;
@@ -18,7 +18,7 @@ body {
   margin: 0;
   background: var(--surface);
   color: var(--ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 a {
@@ -59,7 +59,7 @@ a {
   padding-right: 3px;
 }
 .brand-mark span {
-  color: #78d8ab;
+  color: #efb49c;
 }
 .brand-dot {
   color: var(--green);
@@ -365,6 +365,377 @@ footer {
   color: var(--green);
   font: inherit;
   cursor: pointer;
+}
+
+/* The product, not its infrastructure, leads the experience. */
+.topbar,
+.catalogue-nav {
+  min-height: 78px;
+}
+.brand {
+  font-size: 22px;
+  letter-spacing: -0.055em;
+}
+.auth-nav a,
+.auth-nav button {
+  color: var(--ink);
+}
+.auth-nav a:hover,
+.auth-nav button:hover,
+.event-link:hover,
+.text-button:hover {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.auth-nav form {
+  margin: 0;
+}
+.home-page .hero {
+  padding: clamp(90px, 11vw, 150px) 0 82px;
+  max-width: 1000px;
+}
+.home-page .hero h1 {
+  max-width: 900px;
+  font-size: clamp(60px, 8.2vw, 116px);
+  letter-spacing: -0.078em;
+  line-height: 1.02;
+  margin: 24px 0 28px;
+}
+.home-page .hero h1 em {
+  color: var(--green);
+}
+.home-page .hero-description {
+  color: var(--muted);
+  max-width: 590px;
+  line-height: 1.55;
+}
+.eyebrow,
+.section-index {
+  color: var(--green);
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 38px;
+}
+.button-primary,
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 16px 24px;
+  border-radius: 3px;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+.button-primary {
+  color: white;
+  background: var(--ink);
+}
+.button-primary:hover {
+  background: var(--green);
+  transform: translateY(-2px);
+}
+.button-secondary {
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.button-secondary:hover {
+  border-color: var(--ink);
+}
+.home-page .hero-meta {
+  margin-top: 80px;
+  color: #7b7b78;
+}
+.featured {
+  padding: 80px 0 112px;
+}
+.featured-heading,
+.account-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+.featured-heading h2,
+.account-section-heading h2 {
+  font-size: clamp(30px, 3.6vw, 48px);
+  letter-spacing: -0.06em;
+  margin: 12px 0 0;
+}
+.event-grid {
+  gap: 16px;
+}
+.event-card {
+  border-radius: 3px;
+  min-height: 330px;
+  padding: clamp(26px, 3.5vw, 40px);
+  box-shadow: none;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+.event-card:hover {
+  border-color: #b8afa5;
+  transform: translateY(-3px);
+}
+.event-card h3,
+.event-card h2 {
+  font-size: clamp(27px, 3vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.05em;
+  margin: 8px 0 0;
+}
+.event-card .event-meta {
+  margin-top: auto;
+}
+.event-card .event-link {
+  margin-top: 4px;
+}
+.catalogue-header {
+  padding: 74px 0 50px;
+}
+.catalogue-header h1 {
+  font-size: clamp(48px, 6.5vw, 86px);
+  letter-spacing: -0.07em;
+  margin: 20px 0;
+}
+.site-footer {
+  border-top: 1px solid var(--line);
+  align-items: center;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+.service-ok {
+  color: #38694a;
+}
+.service-down {
+  color: var(--green);
+}
+.account-page {
+  min-height: 100vh;
+}
+.account-header {
+  padding-bottom: 38px;
+}
+.account-header > p strong {
+  color: var(--ink);
+}
+.account-content {
+  padding: 34px 0 100px;
+  border-top: 1px solid var(--line);
+}
+.booking-count {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.notice {
+  background: #e8efe7;
+  border: 1px solid #d0e0ce;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+.empty-state {
+  padding: clamp(42px, 7vw, 96px);
+  border: 1px solid var(--line);
+  background: white;
+  max-width: 850px;
+}
+.empty-symbol {
+  display: block;
+  color: var(--green);
+  font-size: 44px;
+  margin-bottom: 18px;
+}
+.empty-state h3 {
+  font-size: clamp(28px, 3vw, 40px);
+  letter-spacing: -0.05em;
+  margin-bottom: 12px;
+}
+.empty-state p {
+  max-width: 490px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+.booking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.booking-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 34px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.booking-info h3 {
+  font-size: 27px;
+  letter-spacing: -0.05em;
+  margin: 10px 0;
+}
+.booking-info p {
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.6;
+}
+.booking-controls {
+  display: grid;
+  justify-items: end;
+  gap: 18px;
+}
+.booking-status {
+  color: #38694a;
+  background: #e8efe7;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.booking-status.is-cancelled {
+  color: var(--muted);
+  background: #e9e8e4;
+}
+.text-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--green);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.event-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.75fr);
+  gap: clamp(40px, 6vw, 110px);
+  align-items: start;
+  padding-bottom: 120px;
+}
+.event-detail-layout .catalogue-header {
+  padding-top: 84px;
+}
+.event-description {
+  font-size: 19px;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 630px;
+}
+.event-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px;
+  border-top: 1px solid var(--line);
+  margin-top: 65px;
+  padding-top: 30px;
+}
+.event-facts > div {
+  display: grid;
+  gap: 12px;
+  line-height: 1.5;
+}
+.booking-panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: clamp(26px, 3vw, 42px);
+  margin-top: 85px;
+}
+.booking-panel h2 {
+  font-size: 38px;
+  letter-spacing: -0.06em;
+  margin: 14px 0;
+}
+.booking-panel > p {
+  color: var(--muted);
+}
+.booking-panel form {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+.booking-panel input {
+  width: 100%;
+  padding: 15px;
+  border: 1px solid var(--line);
+  font: inherit;
+}
+.booking-panel button {
+  padding: 16px;
+  border: 0;
+  background: var(--ink);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+.booking-panel button:hover {
+  background: var(--green);
+}
+.booking-panel button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.booking-panel .booking-fineprint {
+  margin-top: 30px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 800px) {
+  .event-detail-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .event-detail-layout .catalogue-header {
+    padding-bottom: 0;
+  }
+  .booking-panel {
+    margin-top: 20px;
+  }
+}
+@media (max-width: 600px) {
+  .home-page .hero {
+    padding-top: 80px;
+  }
+  .home-page .hero h1 {
+    font-size: clamp(54px, 13vw, 75px);
+  }
+  .home-page .hero-meta {
+    margin-top: 55px;
+  }
+  .featured {
+    padding-top: 60px;
+  }
+  .featured-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .booking-item {
+    align-items: start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .booking-controls {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+  .event-facts {
+    grid-template-columns: 1fr;
+  }
 }
 .auth-page {
   padding-top: 40px;

@@ -19,7 +19,10 @@ export default async function EventsPage() {
         <h1>
           Upcoming events<span className="brand-dot">.</span>
         </h1>
-        <p>Find something worth showing up for. Times shown in UTC.</p>
+        <p>
+          Make plans worth keeping. Browse what’s coming up and reserve your
+          place. Times shown in UTC.
+        </p>
       </header>
       {result.status === 'unavailable' ? (
         <p role="status" className="catalogue-message">
@@ -33,7 +36,11 @@ export default async function EventsPage() {
         <ul className="event-grid">
           {result.events.map((event) => (
             <li key={event.id} className="event-card">
-              <span className="section-index">UPCOMING EVENT</span>
+              <span className="section-index">
+                {event.remainingSeats > 0
+                  ? `${event.remainingSeats} PLACES LEFT`
+                  : 'SOLD OUT'}
+              </span>
               <h2>
                 <Link href={`/events/${event.id}`}>{event.title}</Link>
               </h2>
