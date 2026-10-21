@@ -6,6 +6,7 @@ import { createAuthRepository } from './modules/auth/repository.js';
 import { startSessionCleanup } from './modules/auth/session-cleanup.js';
 import { createAuthRateLimiter } from './modules/auth/rate-limit.js';
 import { createRedisRateLimitStore } from './modules/auth/redis-rate-limit.js';
+import { createBookingRepository } from './modules/bookings/repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
     checkDatabase: () => checkDatabase(database),
     events: createEventReader(database),
     auth,
+    bookings: createBookingRepository(database),
     authRateLimiter: createAuthRateLimiter(redis.store),
   });
   const stopSessionCleanup = startSessionCleanup(auth, app.log);

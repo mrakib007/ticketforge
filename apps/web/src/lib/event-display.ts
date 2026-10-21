@@ -6,6 +6,8 @@ const format = new Intl.DateTimeFormat('en-US', {
   timeZone: 'UTC',
 });
 
-export function eventSchedule(event: PublicEvent): string {
+export function eventSchedule(
+  event: Pick<PublicEvent, 'startsAt' | 'endsAt'>,
+): string {
   return `${format.format(new Date(event.startsAt))} – ${format.format(new Date(event.endsAt))} UTC`;
 }

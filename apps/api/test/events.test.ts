@@ -9,6 +9,7 @@ const event = {
   venue: 'City Observatory',
   startsAt: '2027-07-12T19:00:00.000Z',
   endsAt: '2027-07-12T22:00:00.000Z',
+  remainingSeats: 100,
 };
 const list = vi.fn();
 const find = vi.fn();

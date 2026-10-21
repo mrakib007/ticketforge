@@ -10,6 +10,7 @@ const event = {
   venue: 'City Observatory',
   startsAt: '2027-07-12T19:00:00.000Z',
   endsAt: '2027-07-12T22:00:00.000Z',
+  remainingSeats: 100,
 };
 
 it('reads and validates the event list', async () => {

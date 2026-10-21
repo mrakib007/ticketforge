@@ -9,6 +9,7 @@ import { createDatabase, checkDatabase } from '../src/db/client.js';
 import { loadConfig } from '../src/config.js';
 import { createEventReader } from '../src/modules/events/repository.js';
 import { createAuthRepository } from '../src/modules/auth/repository.js';
+import { createBookingRepository } from '../src/modules/bookings/repository.js';
 
 const execFileAsync = promisify(execFile);
 const prismaCli = createRequire(import.meta.url).resolve(
@@ -25,6 +26,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     checkDatabase: () => checkDatabase(database),
     events: createEventReader(database),
     auth: createAuthRepository(database),
+    bookings: createBookingRepository(database),
   });
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -83,6 +85,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         venue: 'Hall',
         startsAt: tomorrow.toISOString(),
         endsAt: later.toISOString(),
+        remainingSeats: 0,
       },
     ]);
     expect((await app.inject(`/events/${draft.id}`)).statusCode).toBe(404);
@@ -184,6 +187,104 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     expect(await database.session.findMany()).toMatchObject([
       { tokenHash: 'b'.repeat(64) },
     ]);
+    const bookingEvent = await database.event.create({
+      data: {
+        title: 'One seat',
+        description: 'Limited',
+        venue: 'Hall',
+        startsAt: tomorrow,
+        endsAt: later,
+        published: true,
+        capacity: 1,
+      },
+    });
+    const bookingLogin = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email: 'reader@example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    const bookingHeaders = {
+      authorization: `Bearer ${bookingLogin.json().token as string}`,
+    };
+    const create = () =>
+      app.inject({
+        method: 'POST',
+        url: '/bookings',
+        headers: bookingHeaders,
+        payload: { eventId: bookingEvent.id, quantity: 1 },
+      });
+    const attempts = await Promise.all([create(), create()]);
+    expect(attempts.map((response) => response.statusCode).sort()).toEqual([
+      201, 409,
+    ]);
+    expect(await database.booking.count()).toBe(1);
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: bookingEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(1);
+    const mine = await app.inject({
+      url: '/bookings',
+      headers: bookingHeaders,
+    });
+    expect(mine.json().bookings).toHaveLength(1);
+    expect(mine.json().bookings[0].event.title).toBe('One seat');
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: bookingHeaders,
+          payload: { eventId: draft.id, quantity: 1 },
+        })
+      ).statusCode,
+    ).toBe(404);
+    const other = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: 'other@example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    expect(
+      (
+        await app.inject({
+          url: '/bookings',
+          headers: { authorization: `Bearer ${other.json().token as string}` },
+        })
+      ).json(),
+    ).toEqual({ bookings: [] });
+    const rollbackEvent = await database.event.create({
+      data: {
+        title: 'Rollback',
+        description: 'Limited',
+        venue: 'Hall',
+        startsAt: tomorrow,
+        endsAt: later,
+        published: true,
+        capacity: 1,
+      },
+    });
+    await expect(
+      createBookingRepository(database).create(
+        '00000000-0000-0000-0000-000000000000',
+        rollbackEvent.id,
+        1,
+      ),
+    ).rejects.toThrow();
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: rollbackEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(0);
     await expect(
       database.event.create({
         data: {

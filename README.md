@@ -1,6 +1,6 @@
 # TicketForge
 
-A learning-oriented, production-inspired ticketing platform. The foundation includes a **read-only event catalogue** and email/password accounts; there are no seats, bookings, payments or event management screens yet. One Git repository contains two independently runnable applications and a shared contracts package.
+A learning-oriented, production-inspired ticketing platform with an event catalogue, email/password accounts, and capacity-based ticket bookings. There is no seat selection, payment processing, or event management UI yet. One Git repository contains two independently runnable applications and a shared contracts package.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ Keep the existing `.env` and `apps/api/.env` files; copying the examples again w
 
 If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness.
 
-Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Browse **http://127.0.0.1:3000/events** for upcoming published events and select one for its details (times displayed in UTC). Create an account at **/register**, sign in at **/login**, and view **/account**. The API exposes `GET /events` (up to 50 upcoming events, ordered by start) and `GET /events/:id` (published events only). Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
+Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Browse **http://127.0.0.1:3000/events** for upcoming published events and select one for its details (times displayed in UTC). Create an account at **/register**, sign in at **/login**, book 1–10 tickets on an event page, and view your bookings at **/account**. The API exposes `GET /events` (up to 50 upcoming events, ordered by start) and `GET /events/:id` (published events only). Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
 
 `npm run dev` starts both apps; use `npm run dev -w @ticketforge/api` and `npm run dev -w @ticketforge/web` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive).
 
@@ -82,7 +82,7 @@ never imports it or accesses PostgreSQL directly.
 
 The schema lives in `apps/api/prisma/schema.prisma`. The `Event` model stores title,
 description, venue, UTC start and end timestamps, and publication state. A database
-constraint requires the end to follow the start. `User` and `Session` store accounts and hashed session tokens; there are no booking models.
+constraint requires the end to follow the start. `User` and `Session` store accounts and hashed session tokens. `Booking` stores the ticket quantity for an event and user; `Event` stores capacity and booked seats. Existing events receive zero capacity until explicitly configured (run `npm run db:seed` to give the two sample events 100 seats each).
 Prisma Client handles both catalogue reads and the readiness query. Prisma uses the
 `pg` driver internally via its adapter.
 
@@ -108,6 +108,10 @@ Keep it local; it can edit real data. The event table can be browsed there.
 The API supports `POST /auth/register`, `POST /auth/login` (JSON email/password), `GET /auth/me`, and `POST /auth/logout` (the latter two require `Authorization: Bearer <token>`). Registration returns 201, duplicate emails 409, invalid input 400, and invalid login 401. Email is normalized to lowercase; passwords require 12–1024 characters and are scrypt-hashed with a random salt. PostgreSQL stores a SHA-256 hash of each random session token, not the token itself. Sessions expire after seven days and logout revokes the current session. The Next.js server handles the API token and sets an HttpOnly, SameSite=Lax cookie (Secure in production); client-side JavaScript never receives the token. Deploy behind HTTPS; this project does not yet provide email verification, password reset or MFA.
 
 Redis now holds expiring, atomic counters for both auth endpoints (set the server-only `REDIS_URL`; local Compose provides Redis). In each fixed window login allows 10 attempts per normalized email and 300 per API-visible IP per 15 minutes; registration allows 3 per email and 60 per API-visible IP per hour. Limits include unsuccessful and successful attempts. Exceeding a limit returns 429 with `Retry-After`; a Redis failure returns 503 rather than permitting unlimited attempts. Redis is not used for sessions or account data. These thresholds are starting points, not a substitute for traffic monitoring or ingress limits. **Important:** browser form submissions go through the Next.js server, so the API-visible IP for those requests is the _web server_, not the visitor. These IP budgets are shared by visitors behind that server. Enforce real per-client-IP limits at the trusted public ingress in front of Next.js; do not enable `trustProxy` or trust arbitrary forwarded-IP headers without a locked-down trusted proxy. Secure the API at the ingress too, so requests cannot bypass its intended controls.
+
+## Bookings
+
+`POST /bookings` accepts `{ "eventId": "<uuid>", "quantity": 1 }` (1–10) with `Authorization: Bearer <token>` and returns the booking (201). `GET /bookings` returns up to 100 bookings for that session's user, newest first. Missing/expired sessions return 401; unpublished, missing or started events return 404; insufficient capacity returns 409. The event catalogue shows remaining seats. A PostgreSQL transaction conditionally increments booked seats and inserts the booking; if insertion fails the increment rolls back, and concurrent requests cannot oversell. Inventory remains in PostgreSQL, never Redis. These bookings are immediate and do not involve payment, cancellation, or assigned seats. The web form uses Formik; the session token remains in the Next.js server's HttpOnly cookie.
 
 ## Repository map
 

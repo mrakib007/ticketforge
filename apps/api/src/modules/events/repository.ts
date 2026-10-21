@@ -13,6 +13,8 @@ const publicFields = {
   venue: true,
   startsAt: true,
   endsAt: true,
+  capacity: true,
+  bookedSeats: true,
 } as const;
 
 type EventRow = {
@@ -22,13 +24,19 @@ type EventRow = {
   venue: string;
   startsAt: Date;
   endsAt: Date;
+  capacity: number;
+  bookedSeats: number;
 };
 
 function toPublicEvent(row: EventRow): PublicEvent {
   return {
-    ...row,
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    venue: row.venue,
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
+    remainingSeats: row.capacity - row.bookedSeats,
   };
 }
 

@@ -20,7 +20,9 @@ function isEvent(value: unknown): value is PublicEvent {
     !Number.isNaN(Date.parse(item.startsAt)) &&
     typeof item.endsAt === 'string' &&
     !Number.isNaN(Date.parse(item.endsAt)) &&
-    Date.parse(item.endsAt) > Date.parse(item.startsAt)
+    Date.parse(item.endsAt) > Date.parse(item.startsAt) &&
+    Number.isInteger(item.remainingSeats) &&
+    (item.remainingSeats as number) >= 0
   );
 }
 

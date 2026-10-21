@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchEvent } from '../../../lib/events';
 import { eventSchedule } from '../../../lib/event-display';
+import { BookingForm } from '../../bookings/booking-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,11 @@ export default async function EventPage({
             </time>
           </div>
           <p>{result.event.description}</p>
+          <p>{result.event.remainingSeats} tickets available</p>
+          <BookingForm
+            eventId={result.event.id}
+            remainingSeats={result.event.remainingSeats}
+          />
           <Link className="event-link" href="/events">
             ← Back to events
           </Link>
