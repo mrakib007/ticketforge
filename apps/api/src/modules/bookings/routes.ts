@@ -6,6 +6,8 @@ import type { BookingRepository } from './repository.js';
 
 const uuid =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+const keyPattern =
+  '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 
 export function registerBookingRoutes(
   app: FastifyInstance,
@@ -23,6 +25,13 @@ export function registerBookingRoutes(
     '/bookings',
     {
       schema: {
+        headers: {
+          type: 'object',
+          required: ['idempotency-key'],
+          properties: {
+            'idempotency-key': { type: 'string', pattern: keyPattern },
+          },
+        },
         body: {
           type: 'object',
           required: ['eventId', 'quantity'],
@@ -38,16 +47,24 @@ export function registerBookingRoutes(
       try {
         const user = await identify(request);
         if (!user) return reply.code(401).send({ error: 'Unauthorized' });
+        const key = request.headers['idempotency-key'];
+        if (typeof key !== 'string' || !new RegExp(keyPattern).test(key))
+          return reply.code(400).send({ error: 'Invalid idempotency key' });
         const result = await bookings.create(
           user.id,
           request.body.eventId,
           request.body.quantity,
+          key,
         );
+        if (result.status === 'conflict')
+          return reply
+            .code(409)
+            .send({ error: 'Idempotency key used for another booking' });
         if (result.status === 'not-found')
           return reply.code(404).send({ error: 'Event not found' });
         if (result.status === 'sold-out')
           return reply.code(409).send({ error: 'Not enough seats available' });
-        return reply.code(201).send(result.booking);
+        return reply.code(result.replayed ? 200 : 201).send(result.booking);
       } catch (err) {
         request.log.error({ err }, 'Booking failed');
         return reply.code(503).send({ error: 'Bookings unavailable' });

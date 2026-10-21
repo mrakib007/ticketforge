@@ -111,7 +111,7 @@ Redis now holds expiring, atomic counters for both auth endpoints (set the serve
 
 ## Bookings
 
-`POST /bookings` accepts `{ "eventId": "<uuid>", "quantity": 1 }` (1–10) with `Authorization: Bearer <token>` and returns the booking (201). `GET /bookings` returns up to 100 bookings for that session's user, newest first. Missing/expired sessions return 401; unpublished, missing or started events return 404; insufficient capacity returns 409. The event catalogue shows remaining seats. A PostgreSQL transaction conditionally increments booked seats and inserts the booking; if insertion fails the increment rolls back, and concurrent requests cannot oversell. Inventory remains in PostgreSQL, never Redis. These bookings are immediate and do not involve payment, cancellation, or assigned seats. The web form uses Formik; the session token remains in the Next.js server's HttpOnly cookie.
+`POST /bookings` accepts `{ "eventId": "<uuid>", "quantity": 1 }` (1–10) with `Authorization: Bearer <token>` and a lowercase UUID `Idempotency-Key` header. Use a **new key for each intended purchase**, but reuse the same key and body when retrying after a timeout. The first success returns 201; a retry returns the same booking with 200, even if the event has since sold out. Reusing a key with a different event or quantity returns 409. Keys are scoped to the authenticated user and retained with bookings; pre-existing bookings remain unchanged. `GET /bookings` returns up to 100 bookings for that session's user, newest first. Missing/expired sessions return 401; unpublished, missing or started events return 404; insufficient capacity returns 409. The event catalogue shows remaining seats. A PostgreSQL transaction conditionally increments booked seats and inserts the booking; if insertion fails the increment rolls back, and concurrent requests cannot oversell. Inventory remains in PostgreSQL, never Redis. These bookings are immediate and do not involve payment, cancellation, or assigned seats. The Formik form saves the pending event, quantity and key in browser `sessionStorage` before submitting; a refresh in the same tab restores them, even if the event is now sold out. A confirmed booking clears the pending attempt, but uncertain failures retain it until the user retries or explicitly starts a new booking. Browser storage is not authoritative and does not persist across devices or cleared storage. The session token remains in the Next.js server's HttpOnly cookie, never `sessionStorage`.
 
 ## Repository map
 
@@ -128,3 +128,5 @@ docker-compose.yml        Local PostgreSQL, Redis, Kafka (single-node KRaft)
 ```
 
 See [`docs/architecture/foundation.md`](docs/architecture/foundation.md) for why the pieces fit together this way, alternatives, and trade-offs.
+
+See [the backlog](TODO.md) for the next booking task and deferred features.

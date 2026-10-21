@@ -209,17 +209,45 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     const bookingHeaders = {
       authorization: `Bearer ${bookingLogin.json().token as string}`,
     };
+    const idempotencyKey = '42057c9b-3d84-4866-a07e-d88c93eb345c';
     const create = () =>
       app.inject({
         method: 'POST',
         url: '/bookings',
-        headers: bookingHeaders,
+        headers: { ...bookingHeaders, 'idempotency-key': idempotencyKey },
         payload: { eventId: bookingEvent.id, quantity: 1 },
       });
     const attempts = await Promise.all([create(), create()]);
     expect(attempts.map((response) => response.statusCode).sort()).toEqual([
-      201, 409,
+      200, 201,
     ]);
+    expect(attempts[0]!.json().id).toBe(attempts[1]!.json().id);
+    const replay = await create();
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json().id).toBe(attempts[0]!.json().id);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: { ...bookingHeaders, 'idempotency-key': idempotencyKey },
+          payload: { eventId: bookingEvent.id, quantity: 2 },
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: {
+            ...bookingHeaders,
+            'idempotency-key': '88113660-79bf-4919-981b-3120dc467e72',
+          },
+          payload: { eventId: bookingEvent.id, quantity: 1 },
+        })
+      ).statusCode,
+    ).toBe(409);
     expect(await database.booking.count()).toBe(1);
     expect(
       (
@@ -239,7 +267,10 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         await app.inject({
           method: 'POST',
           url: '/bookings',
-          headers: bookingHeaders,
+          headers: {
+            ...bookingHeaders,
+            'idempotency-key': '10d14a30-c45c-480a-873a-4f7e09bda5a1',
+          },
           payload: { eventId: draft.id, quantity: 1 },
         })
       ).statusCode,
@@ -276,6 +307,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         '00000000-0000-0000-0000-000000000000',
         rollbackEvent.id,
         1,
+        'e1f6121c-5ff4-47c8-bfc1-fc12350411cc',
       ),
     ).rejects.toThrow();
     expect(
@@ -285,6 +317,52 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         })
       ).bookedSeats,
     ).toBe(0);
+    const otherEvent = await database.event.create({
+      data: {
+        title: 'Other event',
+        description: 'Open',
+        venue: 'Hall',
+        startsAt: tomorrow,
+        endsAt: later,
+        published: true,
+        capacity: 2,
+      },
+    });
+    const sameKey = '78356b85-7907-46c4-a83e-06c80307761b';
+    const concurrent = await Promise.all(
+      [rollbackEvent.id, otherEvent.id].map((id) =>
+        app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: { ...bookingHeaders, 'idempotency-key': sameKey },
+          payload: { eventId: id, quantity: 1 },
+        }),
+      ),
+    );
+    expect(concurrent.map((response) => response.statusCode).sort()).toEqual([
+      201, 409,
+    ]);
+    const inventories = await database.event.findMany({
+      where: { id: { in: [rollbackEvent.id, otherEvent.id] } },
+      select: { bookedSeats: true },
+    });
+    expect(inventories.reduce((sum, event) => sum + event.bookedSeats, 0)).toBe(
+      1,
+    );
+    const otherHeaders = {
+      authorization: `Bearer ${other.json().token as string}`,
+      'idempotency-key': idempotencyKey,
+    };
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: otherHeaders,
+          payload: { eventId: otherEvent.id, quantity: 1 },
+        })
+      ).statusCode,
+    ).toBe(201);
     await expect(
       database.event.create({
         data: {

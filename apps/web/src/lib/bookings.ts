@@ -38,6 +38,7 @@ export async function createBooking(
   token: string,
   eventId: string,
   quantity: number,
+  idempotencyKey: string,
 ): Promise<
   | { status: 'ok'; booking: PublicBooking }
   | {
@@ -46,12 +47,14 @@ export async function createBooking(
         | 'unauthorized'
         | 'not-found'
         | 'sold-out'
+        | 'conflict'
         | 'unavailable';
     }
 > {
   if (!tokenPattern.test(token)) return { status: 'unauthorized' };
   if (
     !uuid.test(eventId) ||
+    !uuid.test(idempotencyKey) ||
     !Number.isInteger(quantity) ||
     quantity < 1 ||
     quantity > 10
@@ -63,6 +66,7 @@ export async function createBooking(
       headers: {
         authorization: `Bearer ${token}`,
         'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
       },
       body: JSON.stringify({ eventId, quantity }),
       cache: 'no-store',
@@ -70,9 +74,18 @@ export async function createBooking(
     });
     if (response.status === 401) return { status: 'unauthorized' };
     if (response.status === 404) return { status: 'not-found' };
-    if (response.status === 409) return { status: 'sold-out' };
+    if (response.status === 409) {
+      const error: unknown = await response.json();
+      return error &&
+        typeof error === 'object' &&
+        'error' in error &&
+        error.error === 'Idempotency key used for another booking'
+        ? { status: 'conflict' }
+        : { status: 'sold-out' };
+    }
     if (response.status === 400) return { status: 'invalid' };
-    if (response.status !== 201) return { status: 'unavailable' };
+    if (response.status !== 201 && response.status !== 200)
+      return { status: 'unavailable' };
     const booking: unknown = await response.json();
     return isBooking(booking) &&
       booking.eventId === eventId &&

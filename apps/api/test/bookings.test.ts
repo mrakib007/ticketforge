@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 
 const eventId = '8dd0b3a5-7371-46a0-82be-1ee52a9dc8b5';
+const key = 'a9947927-4062-45d6-a647-0e2c9b41e886';
 const user = {
   id: '4cbaea02-4660-4f11-9e3f-207d5fe34609',
   email: 'reader@example.com',
@@ -13,7 +14,10 @@ const app = buildApp({
   bookings,
   sessionReader: auth,
 });
-const headers = { authorization: `Bearer ${'a'.repeat(64)}` };
+const headers = {
+  authorization: `Bearer ${'a'.repeat(64)}`,
+  'idempotency-key': key,
+};
 
 afterEach(() => {
   vi.resetAllMocks();
@@ -69,7 +73,45 @@ it('validates booking input and returns created booking', async () => {
   });
   expect(result.statusCode).toBe(201);
   expect(result.json()).toEqual(booking);
-  expect(bookings.create).toHaveBeenCalledWith(user.id, eventId, 2);
+  expect(bookings.create).toHaveBeenCalledWith(user.id, eventId, 2, key);
+});
+
+it('requires a valid idempotency key and distinguishes replays from conflicting reuse', async () => {
+  auth.findSession.mockResolvedValue(user);
+  for (const badHeaders of [
+    { authorization: headers.authorization },
+    { ...headers, 'idempotency-key': 'invalid' },
+  ]) {
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: badHeaders,
+          payload: { eventId, quantity: 1 },
+        })
+      ).statusCode,
+    ).toBe(400);
+  }
+  expect(bookings.create).not.toHaveBeenCalled();
+  const booking = { id: eventId, eventId, quantity: 1 };
+  bookings.create
+    .mockResolvedValueOnce({ status: 'ok', booking, replayed: false })
+    .mockResolvedValueOnce({ status: 'ok', booking, replayed: true })
+    .mockResolvedValueOnce({ status: 'conflict' });
+  const send = () =>
+    app.inject({
+      method: 'POST',
+      url: '/bookings',
+      headers,
+      payload: { eventId, quantity: 1 },
+    });
+  expect((await send()).statusCode).toBe(201);
+  const replay = await send();
+  expect(replay.statusCode).toBe(200);
+  expect(replay.json()).toEqual(booking);
+  expect((await send()).statusCode).toBe(409);
+  expect(bookings.create).toHaveBeenCalledWith(user.id, eventId, 1, key);
 });
 
 it('reports unavailable events, sold-out capacity and safe infrastructure errors', async () => {

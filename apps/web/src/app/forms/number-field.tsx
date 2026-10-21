@@ -7,11 +7,13 @@ export function NumberField({
   label,
   min,
   max,
+  disabled,
 }: {
   name: string;
   label: string;
   min: number;
   max: number;
+  disabled?: boolean;
 }) {
   const [field, meta] = useField<number>(name);
   return (
@@ -24,6 +26,7 @@ export function NumberField({
         min={min}
         max={max}
         step="1"
+        disabled={disabled}
         aria-invalid={meta.touched && !!meta.error}
         aria-describedby={
           meta.touched && meta.error ? `${name}-error` : undefined

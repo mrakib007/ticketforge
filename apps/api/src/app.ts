@@ -21,6 +21,7 @@ export function buildApp(deps: {
   if (deps.events) registerEventRoutes(app, deps.events);
   if (deps.auth) registerAuthRoutes(app, deps.auth, deps.authRateLimiter);
   const sessions = deps.sessionReader ?? deps.auth;
-  if (deps.bookings && sessions) registerBookingRoutes(app, deps.bookings, sessions);
+  if (deps.bookings && sessions)
+    registerBookingRoutes(app, deps.bookings, sessions);
   return app;
 }

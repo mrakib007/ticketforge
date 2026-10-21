@@ -51,7 +51,9 @@ model Booking {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
   quantity  Int
   createdAt DateTime @default(now()) @db.Timestamptz(3)
+  idempotencyKey String? @db.Uuid
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([eventId])
 }
