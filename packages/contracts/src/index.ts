@@ -33,6 +33,7 @@ export interface PublicBooking {
   eventId: string;
   quantity: number;
   createdAt: string;
+  cancelledAt: string | null;
   event: Pick<PublicEvent, 'title' | 'venue' | 'startsAt' | 'endsAt'>;
 }
 

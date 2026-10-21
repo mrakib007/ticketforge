@@ -8,7 +8,7 @@ const user = {
   email: 'reader@example.com',
 };
 const auth = { findSession: vi.fn() };
-const bookings = { create: vi.fn(), list: vi.fn() };
+const bookings = { create: vi.fn(), list: vi.fn(), cancel: vi.fn() };
 const app = buildApp({
   checkDatabase: async () => true,
   bookings,
@@ -161,4 +161,60 @@ it('does not expose session or listing failures to clients', async () => {
   const listFailure = await app.inject({ url: '/bookings', headers });
   expect(listFailure.statusCode).toBe(503);
   expect(listFailure.body).not.toContain('private_password');
+});
+
+it('cancels only authenticated, owned bookings and validates ids', async () => {
+  auth.findSession.mockResolvedValue(user);
+  expect(
+    (await app.inject({ method: 'POST', url: '/bookings/bad/cancel', headers }))
+      .statusCode,
+  ).toBe(400);
+  expect(bookings.cancel).not.toHaveBeenCalled();
+  auth.findSession.mockResolvedValueOnce(null);
+  expect(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/bookings/${eventId}/cancel`,
+        headers,
+      })
+    ).statusCode,
+  ).toBe(401);
+  bookings.cancel
+    .mockResolvedValueOnce({ status: 'not-found' })
+    .mockResolvedValueOnce({ status: 'ok' });
+  expect(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/bookings/${eventId}/cancel`,
+        headers,
+      })
+    ).statusCode,
+  ).toBe(404);
+  expect(
+    (
+      await app.inject({
+        method: 'POST',
+        url: `/bookings/${eventId}/cancel`,
+        headers,
+      })
+    ).statusCode,
+  ).toBe(200);
+  expect(bookings.cancel).toHaveBeenCalledWith(user.id, eventId);
+});
+
+it('distinguishes cutoff and repeat cancellation, and hides infrastructure errors', async () => {
+  auth.findSession.mockResolvedValue(user);
+  bookings.cancel
+    .mockResolvedValueOnce({ status: 'too-late' })
+    .mockResolvedValueOnce({ status: 'already-cancelled' });
+  const send = () =>
+    app.inject({ method: 'POST', url: `/bookings/${eventId}/cancel`, headers });
+  expect((await send()).statusCode).toBe(409);
+  expect((await send()).statusCode).toBe(200);
+  bookings.cancel.mockRejectedValue(new Error('private_password'));
+  const failed = await send();
+  expect(failed.statusCode).toBe(503);
+  expect(failed.body).not.toContain('private_password');
 });

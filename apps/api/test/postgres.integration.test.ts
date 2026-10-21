@@ -363,6 +363,146 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         })
       ).statusCode,
     ).toBe(201);
+    const bookingId = attempts[0]!.json().id as string;
+    const cancel = (headers: { authorization: string }) =>
+      app.inject({
+        method: 'POST',
+        url: `/bookings/${bookingId}/cancel`,
+        headers,
+      });
+    expect(
+      (await cancel({ authorization: otherHeaders.authorization })).statusCode,
+    ).toBe(404);
+    expect(
+      (await cancel({ authorization: 'Bearer ' + 'a'.repeat(64) })).statusCode,
+    ).toBe(401);
+    const cancellations = await Promise.all([
+      cancel(bookingHeaders),
+      cancel(bookingHeaders),
+    ]);
+    expect(cancellations.map((response) => response.statusCode)).toEqual([
+      200, 200,
+    ]);
+    expect(
+      cancellations.map((response) => response.json().status).sort(),
+    ).toEqual(['already-cancelled', 'ok']);
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: bookingEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(0);
+    expect(
+      (await database.booking.findUniqueOrThrow({ where: { id: bookingId } }))
+        .cancelledAt,
+    ).not.toBeNull();
+    expect((await create()).json().cancelledAt).not.toBeNull();
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: bookingEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(0);
+    const replacementKey = 'fa96b266-e100-40ba-b16b-77b7d0d58b6a';
+    const replacement = await app.inject({
+      method: 'POST',
+      url: '/bookings',
+      headers: { ...bookingHeaders, 'idempotency-key': replacementKey },
+      payload: { eventId: bookingEvent.id, quantity: 1 },
+    });
+    expect(replacement.statusCode).toBe(201);
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: bookingEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(1);
+    const race = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/bookings/${replacement.json().id as string}/cancel`,
+        headers: bookingHeaders,
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/bookings',
+        headers: {
+          ...bookingHeaders,
+          'idempotency-key': '121c7f86-ff26-4fc9-b46b-4821f8c0e519',
+        },
+        payload: { eventId: bookingEvent.id, quantity: 1 },
+      }),
+    ]);
+    expect(race[0]!.json().status).toBe('ok');
+    expect([201, 409]).toContain(race[1]!.statusCode);
+    // The booking either saw a full event or took the seat just released.
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: bookingEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(race[1]!.statusCode === 201 ? 1 : 0);
+    if (race[1]!.statusCode === 409) {
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/bookings',
+            headers: {
+              ...bookingHeaders,
+              'idempotency-key': '933a72c0-7ad0-4952-a0a4-b94a1cb4d058',
+            },
+            payload: { eventId: bookingEvent.id, quantity: 1 },
+          })
+        ).statusCode,
+      ).toBe(201);
+    }
+    expect(
+      (
+        await database.event.findUniqueOrThrow({
+          where: { id: bookingEvent.id },
+        })
+      ).bookedSeats,
+    ).toBe(1);
+    const started = await database.event.create({
+      data: {
+        title: 'Started',
+        description: 'Past cutoff',
+        venue: 'Hall',
+        startsAt: new Date('2020-01-01T10:00:00Z'),
+        endsAt: new Date('2020-01-01T11:00:00Z'),
+        capacity: 1,
+        bookedSeats: 1,
+        published: true,
+      },
+    });
+    const owner = await database.user.findUniqueOrThrow({
+      where: { email: 'reader@example.com' },
+    });
+    const late = await database.booking.create({
+      data: { eventId: started.id, userId: owner.id, quantity: 1 },
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/bookings/${late.id}/cancel`,
+          headers: bookingHeaders,
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (await database.event.findUniqueOrThrow({ where: { id: started.id } }))
+        .bookedSeats,
+    ).toBe(1);
+    expect(
+      (await database.booking.findUniqueOrThrow({ where: { id: late.id } }))
+        .cancelledAt,
+    ).toBeNull();
     await expect(
       database.event.create({
         data: {

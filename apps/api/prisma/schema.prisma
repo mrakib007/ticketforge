@@ -52,6 +52,7 @@ model Booking {
   quantity  Int
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   idempotencyKey String? @db.Uuid
+  cancelledAt DateTime? @db.Timestamptz(3)
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])

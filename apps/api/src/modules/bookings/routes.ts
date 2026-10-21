@@ -82,4 +82,32 @@ export function registerBookingRoutes(
       return reply.code(503).send({ error: 'Bookings unavailable' });
     }
   });
+
+  app.post<{ Params: { id: string } }>(
+    '/bookings/:id/cancel',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', pattern: uuid } },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const user = await identify(request);
+        if (!user) return reply.code(401).send({ error: 'Unauthorized' });
+        const result = await bookings.cancel(user.id, request.params.id);
+        if (result.status === 'not-found')
+          return reply.code(404).send({ error: 'Booking not found' });
+        if (result.status === 'too-late')
+          return reply.code(409).send({ error: 'Cancellation cutoff passed' });
+        return { status: result.status };
+      } catch (err) {
+        request.log.error({ err }, 'Booking cancellation failed');
+        return reply.code(503).send({ error: 'Bookings unavailable' });
+      }
+    },
+  );
 }

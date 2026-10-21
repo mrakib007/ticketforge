@@ -1,0 +1,1 @@
+ALTER TABLE "Booking" ADD COLUMN "cancelledAt" TIMESTAMPTZ(3);

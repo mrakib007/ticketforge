@@ -15,6 +15,10 @@ export interface BookingRepository {
     | { status: 'conflict' }
   >;
   list(userId: string): Promise<PublicBooking[]>;
+  cancel(
+    userId: string,
+    bookingId: string,
+  ): Promise<{ status: 'ok' | 'already-cancelled' | 'not-found' | 'too-late' }>;
 }
 
 const bookingFields = {
@@ -22,6 +26,7 @@ const bookingFields = {
   eventId: true,
   quantity: true,
   createdAt: true,
+  cancelledAt: true,
   event: { select: { title: true, venue: true, startsAt: true, endsAt: true } },
 } as const;
 
@@ -30,6 +35,7 @@ type BookingRow = {
   eventId: string;
   quantity: number;
   createdAt: Date;
+  cancelledAt: Date | null;
   event: { title: string; venue: string; startsAt: Date; endsAt: Date };
 };
 
@@ -39,6 +45,7 @@ function toPublicBooking(row: BookingRow): PublicBooking {
     eventId: row.eventId,
     quantity: row.quantity,
     createdAt: row.createdAt.toISOString(),
+    cancelledAt: row.cancelledAt?.toISOString() ?? null,
     event: {
       ...row.event,
       startsAt: row.event.startsAt.toISOString(),
@@ -128,6 +135,37 @@ export function createBookingRepository(
         take: 100,
       });
       return rows.map(toPublicBooking);
+    },
+    async cancel(userId, bookingId) {
+      return database.$transaction(async (tx) => {
+        // Lock the booking before checking its state so concurrent cancellation
+        // requests can never both release the same seats.
+        const [booking] = await tx.$queryRaw<
+          { eventId: string; quantity: number; cancelledAt: Date | null }[]
+        >`SELECT "eventId", "quantity", "cancelledAt" FROM "Booking"
+           WHERE "id" = ${bookingId}::uuid AND "userId" = ${userId}::uuid FOR UPDATE`;
+        if (!booking) return { status: 'not-found' } as const;
+        if (booking.cancelledAt)
+          return { status: 'already-cancelled' } as const;
+        // PostgreSQL's wall clock, not the transaction start time or the web
+        // server's clock, determines whether the cutoff has passed.
+        const released = await tx.$executeRaw`
+          UPDATE "Event" SET "bookedSeats" = "bookedSeats" - ${booking.quantity}
+          WHERE "id" = ${booking.eventId}::uuid
+            AND "startsAt" > clock_timestamp()
+            AND "bookedSeats" >= ${booking.quantity}`;
+        if (released === 0) {
+          const [event] = await tx.$queryRaw<{ eligible: boolean }[]>`
+            SELECT "startsAt" > clock_timestamp() AS eligible FROM "Event"
+            WHERE "id" = ${booking.eventId}::uuid`;
+          if (!event?.eligible) return { status: 'too-late' } as const;
+          throw new Error('Booking inventory invariant violated');
+        }
+        await tx.$executeRaw`
+          UPDATE "Booking" SET "cancelledAt" = clock_timestamp()
+          WHERE "id" = ${bookingId}::uuid`;
+        return { status: 'ok' } as const;
+      });
     },
   };
 }

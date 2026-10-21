@@ -1,5 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { createBooking, fetchBookings } from '../src/lib/bookings';
+import {
+  createBooking,
+  fetchBookings,
+  cancelBooking,
+} from '../src/lib/bookings';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -15,6 +19,7 @@ it('books using a server-side bearer token and validates the response', async ()
       eventId,
       quantity: 2,
       createdAt: '2026-10-20T00:00:00Z',
+      cancelledAt: null,
       event: {
         title: 'Concert',
         venue: 'Hall',
@@ -30,6 +35,7 @@ it('books using a server-side bearer token and validates the response', async ()
       eventId,
       quantity: 2,
       createdAt: '2026-10-20T00:00:00Z',
+      cancelledAt: null,
       event: {
         title: 'Concert',
         venue: 'Hall',
@@ -111,4 +117,37 @@ it('rejects forged booking lists and does not contact API for invalid tokens', a
   expect(await fetchBookings(token)).toEqual({ status: 'unavailable' });
   expect(await fetchBookings('invalid')).toEqual({ status: 'unauthorized' });
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it('cancels through the server API and maps success and failure states', async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce({ status: 200 })
+    .mockResolvedValueOnce({ status: 404 })
+    .mockResolvedValueOnce({ status: 409 })
+    .mockResolvedValueOnce({ status: 401 })
+    .mockRejectedValueOnce(new Error('secret'));
+  vi.stubGlobal('fetch', fetch);
+  for (const status of [
+    'ok',
+    'not-found',
+    'too-late',
+    'unauthorized',
+    'unavailable',
+  ]) {
+    expect(await cancelBooking(token, eventId)).toEqual({ status });
+  }
+  expect(fetch).toHaveBeenCalledWith(
+    expect.any(URL),
+    expect.objectContaining({
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    }),
+  );
+  expect(await cancelBooking('invalid', eventId)).toEqual({
+    status: 'unauthorized',
+  });
+  expect(await cancelBooking(token, 'bad')).toEqual({ status: 'invalid' });
+  expect(fetch).toHaveBeenCalledTimes(5);
 });

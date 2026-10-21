@@ -21,6 +21,9 @@ function isBooking(value: unknown): value is PublicBooking {
     (row.quantity as number) <= 10 &&
     typeof row.createdAt === 'string' &&
     !Number.isNaN(Date.parse(row.createdAt)) &&
+    (row.cancelledAt === null ||
+      (typeof row.cancelledAt === 'string' &&
+        !Number.isNaN(Date.parse(row.cancelledAt)))) &&
     typeof event.title === 'string' &&
     typeof event.venue === 'string' &&
     typeof event.startsAt === 'string' &&
@@ -28,6 +31,37 @@ function isBooking(value: unknown): value is PublicBooking {
     typeof event.endsAt === 'string' &&
     Date.parse(event.endsAt) > Date.parse(event.startsAt)
   );
+}
+
+export async function cancelBooking(
+  token: string,
+  bookingId: string,
+): Promise<{
+  status:
+    | 'ok'
+    | 'invalid'
+    | 'unauthorized'
+    | 'not-found'
+    | 'too-late'
+    | 'unavailable';
+}> {
+  if (!tokenPattern.test(token)) return { status: 'unauthorized' };
+  if (!uuid.test(bookingId)) return { status: 'invalid' };
+  try {
+    const response = await fetch(apiUrl(`/bookings/${bookingId}/cancel`), {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.status === 200) return { status: 'ok' };
+    if (response.status === 401) return { status: 'unauthorized' };
+    if (response.status === 404) return { status: 'not-found' };
+    if (response.status === 409) return { status: 'too-late' };
+    return { status: 'unavailable' };
+  } catch {
+    return { status: 'unavailable' };
+  }
 }
 
 function apiUrl(path: string): URL {
