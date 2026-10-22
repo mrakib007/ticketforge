@@ -1,27 +1,31 @@
+import React from 'react';
 import Link from 'next/link';
 import { fetchEvents } from '../../lib/events';
-import { eventSchedule } from '../../lib/event-display';
+import { EventCard } from './event-card';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EventsPage() {
   const result = await fetchEvents();
   return (
-    <main className="shell catalogue">
+    <main className="shell catalogue experiences-page">
       <nav className="catalogue-nav">
         <Link className="brand" href="/">
           ticketforge<span className="brand-dot">.</span>
         </Link>
-        <Link href="/">← Home</Link>
+        <div className="auth-nav">
+          <Link href="/cinemas">Cinema preview</Link>
+          <Link href="/account">My bookings</Link>
+        </div>
       </nav>
       <header className="catalogue-header">
-        <span className="section-index">THE CATALOGUE</span>
+        <span className="section-index">01 / DISCOVER</span>
         <h1>
           Upcoming events<span className="brand-dot">.</span>
         </h1>
         <p>
-          Make plans worth keeping. Browse what’s coming up and reserve your
-          place. Times shown in UTC.
+          From nights under the stars to the unexpected. Find a date that works,
+          then reserve your place for free. Times shown in UTC.
         </p>
       </header>
       {result.status === 'unavailable' ? (
@@ -33,26 +37,14 @@ export default async function EventsPage() {
           No upcoming events yet. Check back soon.
         </p>
       ) : (
-        <ul className="event-grid">
-          {result.events.map((event) => (
-            <li key={event.id} className="event-card">
-              <span className="section-index">
-                {event.remainingSeats > 0
-                  ? `${event.remainingSeats} PLACES LEFT`
-                  : 'SOLD OUT'}
-              </span>
-              <h2>
-                <Link href={`/events/${event.id}`}>{event.title}</Link>
-              </h2>
-              <p>{event.description}</p>
-              <div className="event-meta">
-                <span>{event.venue}</span>
-                <time dateTime={event.startsAt}>{eventSchedule(event)}</time>
-              </div>
-              <Link className="event-link" href={`/events/${event.id}`}>
-                View event →
-              </Link>
-            </li>
+        <ul className="experience-grid">
+          {result.events.map((event, index) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              index={index}
+              headingLevel="h2"
+            />
           ))}
         </ul>
       )}

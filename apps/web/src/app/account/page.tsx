@@ -8,6 +8,48 @@ import { fetchBookings } from '../../lib/bookings';
 import { eventSchedule } from '../../lib/event-display';
 import { cancelMyBooking } from './actions';
 import { canCancelBooking, cancellationNotice } from './cancellation';
+import type { PublicBooking } from '@ticketforge/contracts';
+
+function BookingList({ bookings }: { bookings: PublicBooking[] }) {
+  return (
+    <ul className="booking-list">
+      {bookings.map((booking) => (
+        <li key={booking.id} className="booking-item">
+          <div className="booking-info">
+            <span className="section-index">
+              FREE BOOKING · {booking.event.venue}
+            </span>
+            <h3>
+              <Link href={`/events/${booking.eventId}`}>
+                {booking.event.title}
+              </Link>
+            </h3>
+            <p>
+              <time dateTime={booking.event.startsAt}>
+                {eventSchedule(booking.event)}
+              </time>{' '}
+              · {booking.quantity} {booking.quantity === 1 ? 'place' : 'places'}
+            </p>
+          </div>
+          <div className="booking-controls">
+            <span
+              className={`booking-status ${booking.cancelledAt ? 'is-cancelled' : ''}`}
+            >
+              {booking.cancelledAt ? 'Cancelled' : 'Confirmed'}
+            </span>
+            {canCancelBooking(booking) && (
+              <form action={cancelMyBooking.bind(null, booking.id)}>
+                <button className="text-button" type="submit">
+                  Cancel booking
+                </button>
+              </form>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default async function Account({
   searchParams,
@@ -19,10 +61,22 @@ export default async function Account({
   if (!user) redirect('/login');
   const bookings = await fetchBookings(token!);
   const notice = cancellationNotice((await searchParams).cancel);
-  const active =
+  const upcoming =
     bookings.status === 'ok'
-      ? bookings.bookings.filter((booking) => !booking.cancelledAt).length
-      : 0;
+      ? bookings.bookings.filter(
+          (booking) =>
+            !booking.cancelledAt &&
+            Date.parse(booking.event.startsAt) > Date.now(),
+        )
+      : [];
+  const history =
+    bookings.status === 'ok'
+      ? bookings.bookings.filter(
+          (booking) =>
+            booking.cancelledAt ||
+            Date.parse(booking.event.startsAt) <= Date.now(),
+        )
+      : [];
 
   return (
     <main className="shell catalogue account-page">
@@ -52,9 +106,9 @@ export default async function Account({
         <div className="account-section-heading">
           <div>
             <span className="section-index">YOUR PLANS</span>
-            <h2 id="bookings-title">Upcoming &amp; past</h2>
+            <h2 id="bookings-title">Your plans, in one place.</h2>
           </div>
-          <span className="booking-count">{active} active</span>
+          <span className="booking-count">{upcoming.length} upcoming</span>
         </div>
         {notice && (
           <p className="notice" role="status">
@@ -95,41 +149,25 @@ export default async function Account({
             </Link>
           </div>
         ) : (
-          <ul className="booking-list">
-            {bookings.bookings.map((booking) => (
-              <li key={booking.id} className="booking-item">
-                <div className="booking-info">
-                  <span className="section-index">{booking.event.venue}</span>
-                  <h3>
-                    <Link href={`/events/${booking.eventId}`}>
-                      {booking.event.title}
-                    </Link>
-                  </h3>
-                  <p>
-                    <time dateTime={booking.event.startsAt}>
-                      {eventSchedule(booking.event)}
-                    </time>{' '}
-                    · {booking.quantity}{' '}
-                    {booking.quantity === 1 ? 'ticket' : 'tickets'}
-                  </p>
-                </div>
-                <div className="booking-controls">
-                  <span
-                    className={`booking-status ${booking.cancelledAt ? 'is-cancelled' : ''}`}
-                  >
-                    {booking.cancelledAt ? 'Cancelled' : 'Confirmed'}
-                  </span>
-                  {canCancelBooking(booking) && (
-                    <form action={cancelMyBooking.bind(null, booking.id)}>
-                      <button className="text-button" type="submit">
-                        Cancel booking
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="booking-groups">
+            <section aria-labelledby="upcoming-bookings">
+              <h3 id="upcoming-bookings">Upcoming plans</h3>
+              {upcoming.length ? (
+                <BookingList bookings={upcoming} />
+              ) : (
+                <p className="booking-empty">
+                  Nothing upcoming yet.{' '}
+                  <Link href="/events">Find an event →</Link>
+                </p>
+              )}
+            </section>
+            {history.length > 0 && (
+              <section aria-labelledby="past-bookings">
+                <h3 id="past-bookings">Past &amp; cancelled</h3>
+                <BookingList bookings={history} />
+              </section>
+            )}
+          </div>
         )}
       </section>
       <footer className="site-footer">

@@ -26,4 +26,7 @@ it('puts bookable events and an account path on the home page', async () => {
   expect(html).toContain('Night at the Observatory');
   expect(html).toContain('/events/8dd0b3a5-7371-46a0-82be-1ee52a9dc8b5');
   expect(html).toContain('/account');
+  expect(html).toContain('How booking works');
+  expect(html).toContain('Free to reserve');
+  expect(html).toContain('Explore the cinema preview');
 });

@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TicketForge | Events',
+  title: 'TicketForge | Find your next good night',
   description:
-    'A high-concurrency ticketing platform built to learn reliable backend engineering.',
+    'Explore upcoming experiences, make free event bookings, and keep your plans in one place. Fictional cinema preview also available.',
 };
 
 export default function RootLayout({

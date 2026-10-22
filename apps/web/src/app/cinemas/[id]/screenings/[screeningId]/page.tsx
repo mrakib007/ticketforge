@@ -32,7 +32,9 @@ export default async function ScreeningPage({
   return (
     <main className="shell catalogue cinema-page">
       <nav className="catalogue-nav">
-        <Link href={`/cinemas/${id}`}>← All showtimes</Link>
+        <Link href={`/cinemas/${id}/movies/${show.movie.id}`}>
+          ← All showtimes
+        </Link>
       </nav>
       <header className="catalogue-header">
         <span className="section-index">FICTIONAL DEMO SCREENING</span>
@@ -55,18 +57,22 @@ export default async function ScreeningPage({
           <strong>not live availability</strong>. Seat selection and checkout
           are not available yet.
         </p>
-        <div className="cinema-screen">SCREEN</div>
-        <div className="cinema-seat-map">
-          {show.seats.map((seat) => (
-            <span
-              className="cinema-seat"
-              key={`${seat.rowLabel}-${seat.seatNumber}`}
-              title={seat.category}
-            >
-              {seat.rowLabel}
-              {seat.seatNumber}
-            </span>
-          ))}
+        <div className="cinema-seat-scroll">
+          <div className="cinema-seat-layout">
+            <div className="cinema-screen">SCREEN</div>
+            <div className="cinema-seat-map">
+              {show.seats.map((seat) => (
+                <span
+                  className="cinema-seat"
+                  key={`${seat.rowLabel}-${seat.seatNumber}`}
+                  title={seat.category}
+                >
+                  {seat.rowLabel}
+                  {seat.seatNumber}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     </main>

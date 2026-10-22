@@ -44,11 +44,21 @@ export function BookingForm({
   if (!ready) return <p role="status">Preparing booking form…</p>;
   if (status === 'ok')
     return (
-      <p role="status">
-        Booked! <Link href="/account">View your bookings →</Link>
+      <div className="booking-confirmation" role="status">
+        <span className="section-index">YOU’RE ON THE LIST</span>
+        <h3>Booking confirmed.</h3>
+        <p>Your free booking is in your account. No payment was taken.</p>
+        <Link className="button-primary" href="/account">
+          View your bookings →
+        </Link>
+      </div>
+    );
+  if (remainingSeats === 0 && !pending)
+    return (
+      <p role="status" className="booking-alert">
+        Sold out. No places are available for new bookings.
       </p>
     );
-  if (remainingSeats === 0 && !pending) return <p role="status">Sold out.</p>;
 
   return (
     <Formik
@@ -80,26 +90,36 @@ export function BookingForm({
         setSubmitting(false);
       }}
     >
-      {({ isSubmitting, resetForm }) => (
+      {({ isSubmitting, resetForm, values }) => (
         <Form>
           {pending && (
-            <p role="status">
-              A booking attempt is pending. Retry to confirm it, or check your
-              bookings before starting a new one.
+            <p role="status" className="booking-alert">
+              This booking may have reached us. Retry the same request safely,
+              or check your bookings before starting a new one.
             </p>
           )}
           <NumberField
             name="quantity"
-            label="Tickets"
+            label="Number of places"
             min={1}
             max={pending ? pending.quantity : Math.min(10, remainingSeats)}
             disabled={!!pending}
           />
+          <p className="booking-order-summary">
+            {Number(values.quantity) || 0}{' '}
+            {Number(values.quantity) === 1 ? 'place' : 'places'}{' '}
+            <strong>Free</strong>
+          </p>
           <button type="submit" disabled={isSubmitting}>
-            {pending ? 'Retry booking' : 'Book tickets'}
+            {isSubmitting
+              ? 'Confirming…'
+              : pending
+                ? 'Retry confirmation'
+                : 'Confirm free booking →'}
           </button>
           {pending && (
             <button
+              className="booking-secondary-action"
               type="button"
               disabled={isSubmitting}
               onClick={() => {
@@ -119,14 +139,29 @@ export function BookingForm({
           )}
           {status === 'sold-out' && (
             <p role="alert">
-              Not enough tickets remain. Refresh to see availability.
+              Not enough places remain. Check your bookings before retrying or
+              starting a new request.
             </p>
           )}
-          {status && !['ok', 'unauthorized', 'sold-out'].includes(status) && (
+          {status === 'not-found' && (
             <p role="alert">
-              Booking could not be confirmed. Retry, or check your bookings.
+              This event is no longer open for bookings. Browse other events.
             </p>
           )}
+          {status === 'conflict' && (
+            <p role="alert">
+              This booking request was used for a different selection. Check
+              your bookings before starting over.
+            </p>
+          )}
+          {status &&
+            !['ok', 'unauthorized', 'sold-out'].includes(status) &&
+            !['not-found', 'conflict'].includes(status) && (
+              <p role="alert">
+                We couldn’t confirm your booking just now. Retry the same
+                request or check your account before trying again.
+              </p>
+            )}
         </Form>
       )}
     </Formik>
