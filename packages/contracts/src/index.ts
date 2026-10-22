@@ -21,6 +21,16 @@ export interface EventListResponse {
 export interface PublicUser {
   id: string;
   email: string;
+  role: 'ATTENDEE' | 'ORGANIZER';
+}
+
+export interface OrganizerEvent extends Omit<PublicEvent, 'remainingSeats'> {
+  published: boolean;
+  capacity: number;
+  bookedSeats: number;
+  remainingSeats: number;
+  activeBookings: number;
+  cancelledBookings: number;
 }
 
 export interface AuthResponse {

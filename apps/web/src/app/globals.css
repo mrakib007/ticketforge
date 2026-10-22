@@ -838,3 +838,50 @@ footer {
     padding-top: 64px;
   }
 }
+/* Organizer forms follow the same card and accent treatment as bookings. */
+.organizer-page {
+  padding-bottom: 100px;
+}
+.organizer-page .catalogue-header {
+  max-width: 900px;
+}
+.organizer-form {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+  padding: 32px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 24px 0 48px;
+}
+.organizer-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.organizer-form input,
+.organizer-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  color: var(--ink);
+  background: white;
+}
+.organizer-form input[readonly] {
+  background: var(--surface);
+  color: var(--muted);
+}
+.organizer-form button {
+  justify-self: start;
+  cursor: pointer;
+}
+.organizer-publish {
+  border-top: 1px solid var(--line);
+  padding: 32px 0;
+}
+.organizer-publish button {
+  cursor: pointer;
+}

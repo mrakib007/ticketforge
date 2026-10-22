@@ -32,6 +32,9 @@ export default async function Account({
         </Link>
         <div className="auth-nav">
           <Link href="/events">Browse events</Link>
+          {user.role === 'ORGANIZER' && (
+            <Link href="/organizer">Manage events</Link>
+          )}
           <form action={signOut}>
             <button type="submit">Sign out</button>
           </form>

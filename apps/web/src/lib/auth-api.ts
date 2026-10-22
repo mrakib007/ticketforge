@@ -5,7 +5,11 @@ const tokenPattern = /^[a-f0-9]{64}$/;
 function isUser(value: unknown): value is PublicUser {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
-  return typeof item.id === 'string' && typeof item.email === 'string';
+  return (
+    typeof item.id === 'string' &&
+    typeof item.email === 'string' &&
+    (item.role === 'ATTENDEE' || item.role === 'ORGANIZER')
+  );
 }
 
 function apiUrl(path: string): URL {

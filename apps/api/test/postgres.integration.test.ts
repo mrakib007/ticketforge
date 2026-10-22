@@ -10,7 +10,8 @@ import { loadConfig } from '../src/config.js';
 import { createEventReader } from '../src/modules/events/repository.js';
 import { createAuthRepository } from '../src/modules/auth/repository.js';
 import { createBookingRepository } from '../src/modules/bookings/repository.js';
-import { seedDemoUsers } from '../src/db/seed-users.js';
+import { createOrganizerRepository } from '../src/modules/organizer/repository.js';
+import { seedDemoUsers, seedDemoOrganizer } from '../src/db/seed-users.js';
 import { verifyPassword } from '../src/modules/auth/password.js';
 
 const execFileAsync = promisify(execFile);
@@ -29,6 +30,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     events: createEventReader(database),
     auth: createAuthRepository(database),
     bookings: createBookingRepository(database),
+    organizers: createOrganizerRepository(database),
   });
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -47,6 +49,12 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok' });
     expect(await seedDemoUsers(database, databaseUrl, 'development')).toBe(2);
+    expect(await seedDemoOrganizer(database, databaseUrl, 'development')).toBe(
+      1,
+    );
+    expect(await seedDemoOrganizer(database, databaseUrl, 'development')).toBe(
+      0,
+    );
     const demo = await database.user.findUniqueOrThrow({
       where: { email: 'demo.alice@example.com' },
     });
@@ -114,6 +122,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
       },
     });
     expect(registration.statusCode).toBe(201);
+    expect(registration.json().user.role).toBe('ATTENDEE');
     const token = registration.json().token as string;
     const headers = { authorization: `Bearer ${token}` };
     const storedSession = await database.session.findFirstOrThrow();
@@ -526,6 +535,319 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
       (await database.booking.findUniqueOrThrow({ where: { id: late.id } }))
         .cancelledAt,
     ).toBeNull();
+    const organizerLogin = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email: 'demo.organizer@example.com',
+        password: 'DemoPassword2026!',
+      },
+    });
+    expect(organizerLogin.statusCode).toBe(200);
+    expect(organizerLogin.json().user.role).toBe('ORGANIZER');
+    const organizerHeaders = {
+      authorization: `Bearer ${organizerLogin.json().token as string}`,
+    };
+    expect(
+      (await app.inject({ url: '/organizer/events', headers: bookingHeaders }))
+        .statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await app.inject({
+          url: `/organizer/events/${bookingEvent.id}`,
+          headers: organizerHeaders,
+        })
+      ).statusCode,
+    ).toBe(404);
+    const created = await app.inject({
+      method: 'POST',
+      url: '/organizer/events',
+      headers: organizerHeaders,
+      payload: {
+        title: 'Organizer show',
+        description: 'Demo',
+        venue: 'Hall',
+        startsAt: tomorrow.toISOString(),
+        endsAt: later.toISOString(),
+        capacity: 1,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const managedId = created.json().id as string;
+    const secondOrganizer = await database.user.create({
+      data: {
+        email: 'second.organizer@example.com',
+        passwordHash: (
+          await database.user.findUniqueOrThrow({
+            where: { email: 'demo.organizer@example.com' },
+          })
+        ).passwordHash,
+        role: 'ORGANIZER',
+      },
+    });
+    const secondLogin = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: secondOrganizer.email, password: 'DemoPassword2026!' },
+    });
+    const secondHeaders = {
+      authorization: `Bearer ${secondLogin.json().token as string}`,
+    };
+    expect(
+      (
+        await app.inject({
+          url: `/organizer/events/${managedId}`,
+          headers: secondHeaders,
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/organizer/events/${managedId}`,
+          headers: secondHeaders,
+          payload: { title: 'Stolen' },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect((await app.inject({ url: `/events/${managedId}` })).statusCode).toBe(
+      404,
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/bookings',
+          headers: {
+            ...bookingHeaders,
+            'idempotency-key': '3813ebaa-1fb4-421d-8c69-e70eb0cff5a1',
+          },
+          payload: { eventId: managedId, quantity: 1 },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/organizer/events/${managedId}/publish`,
+          headers: organizerHeaders,
+        })
+      ).statusCode,
+    ).toBe(200);
+    const managedBooking = await app.inject({
+      method: 'POST',
+      url: '/bookings',
+      headers: {
+        ...bookingHeaders,
+        'idempotency-key': 'b8cf5d32-cd16-4b0d-b4da-a568c664c44b',
+      },
+      payload: { eventId: managedId, quantity: 1 },
+    });
+    expect(managedBooking.statusCode).toBe(201);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/organizer/events/${managedId}`,
+          headers: organizerHeaders,
+          payload: { capacity: 0 },
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/organizer/events/${managedId}/unpublish`,
+          headers: organizerHeaders,
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/organizer/events/${managedId}`,
+          headers: organizerHeaders,
+          payload: { venue: 'Elsewhere' },
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await app.inject({
+          url: `/organizer/events/${managedId}`,
+          headers: organizerHeaders,
+        })
+      ).json(),
+    ).toMatchObject({ activeBookings: 1, bookedSeats: 1 });
+    const [capacityEdit, secondBooking] = await Promise.all([
+      app.inject({
+        method: 'PATCH',
+        url: `/organizer/events/${managedId}`,
+        headers: organizerHeaders,
+        payload: { capacity: 1 },
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/bookings',
+        headers: {
+          ...bookingHeaders,
+          'idempotency-key': '665996a8-649d-49d6-9ff7-3a978ae8579e',
+        },
+        payload: { eventId: managedId, quantity: 1 },
+      }),
+    ]);
+    expect(capacityEdit.statusCode).toBe(200);
+    expect(secondBooking.statusCode).toBe(409);
+    expect(
+      (await database.event.findUniqueOrThrow({ where: { id: managedId } }))
+        .bookedSeats,
+    ).toBe(1);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/bookings/${managedBooking.json().id as string}/cancel`,
+          headers: bookingHeaders,
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/organizer/events/${managedId}`,
+          headers: organizerHeaders,
+          payload: { capacity: 0 },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/organizer/events/${managedId}/unpublish`,
+          headers: organizerHeaders,
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          url: `/organizer/events/${managedId}`,
+          headers: organizerHeaders,
+        })
+      ).json(),
+    ).toMatchObject({
+      activeBookings: 0,
+      cancelledBookings: 1,
+      remainingSeats: 0,
+    });
+    const raceEvent = await app.inject({
+      method: 'POST',
+      url: '/organizer/events',
+      headers: organizerHeaders,
+      payload: {
+        title: 'Race show',
+        description: 'Demo',
+        venue: 'Hall',
+        startsAt: tomorrow.toISOString(),
+        endsAt: later.toISOString(),
+        capacity: 1,
+      },
+    });
+    const raceId = raceEvent.json().id as string;
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/organizer/events/${raceId}/publish`,
+          headers: organizerHeaders,
+        })
+      ).statusCode,
+    ).toBe(200);
+    const raceBooking = (key: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/bookings',
+        headers: { ...bookingHeaders, 'idempotency-key': key },
+        payload: { eventId: raceId, quantity: 1 },
+      });
+    const [decrease, claimed] = await Promise.all([
+      app.inject({
+        method: 'PATCH',
+        url: `/organizer/events/${raceId}`,
+        headers: organizerHeaders,
+        payload: { capacity: 0 },
+      }),
+      raceBooking('58ef20b9-1ed0-479a-ab72-1139eea701eb'),
+    ]);
+    expect([200, 409]).toContain(decrease.statusCode);
+    expect([201, 409]).toContain(claimed.statusCode);
+    expect(decrease.statusCode === 200 && claimed.statusCode === 201).toBe(
+      false,
+    );
+    const finalInventory = await database.event.findUniqueOrThrow({
+      where: { id: raceId },
+    });
+    expect(finalInventory.bookedSeats).toBeLessThanOrEqual(
+      finalInventory.capacity,
+    );
+    if (claimed.statusCode === 201) {
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: `/organizer/events/${raceId}/unpublish`,
+            headers: organizerHeaders,
+          })
+        ).statusCode,
+      ).toBe(409);
+      const [cancelled, shrunk] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: `/bookings/${claimed.json().id as string}/cancel`,
+          headers: bookingHeaders,
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: `/organizer/events/${raceId}`,
+          headers: organizerHeaders,
+          payload: { capacity: 0 },
+        }),
+      ]);
+      expect(cancelled.statusCode).toBe(200);
+      expect([200, 409]).toContain(shrunk.statusCode);
+      expect(
+        (await database.event.findUniqueOrThrow({ where: { id: raceId } }))
+          .bookedSeats,
+      ).toBe(0);
+      expect(
+        (
+          await app.inject({
+            method: 'PATCH',
+            url: `/organizer/events/${raceId}`,
+            headers: organizerHeaders,
+            payload: { capacity: 0 },
+          })
+        ).statusCode,
+      ).toBe(200);
+    } else {
+      const [unpublish, attempt] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: `/organizer/events/${raceId}/unpublish`,
+          headers: organizerHeaders,
+        }),
+        raceBooking('702ac2fd-12dc-49e5-9b7c-709074e3c084'),
+      ]);
+      expect(unpublish.statusCode).toBe(200);
+      expect(attempt.statusCode).not.toBe(201);
+    }
     await expect(
       database.event.create({
         data: {

@@ -39,7 +39,7 @@ async function submit(
     path: '/',
     maxAge: 7 * 24 * 60 * 60,
   });
-  redirect('/account');
+  redirect(result.user.role === 'ORGANIZER' ? '/organizer' : '/account');
 }
 
 export async function signOut(): Promise<void> {

@@ -5,7 +5,7 @@ export const demoPassword = 'DemoPassword2026!';
 interface SeedUserDatabase {
   user: {
     createMany(args: {
-      data: { email: string; passwordHash: string }[];
+      data: { email: string; passwordHash: string; role?: 'ORGANIZER' }[];
       skipDuplicates: true;
     }): Promise<{ count: number }>;
   };
@@ -44,6 +44,28 @@ export async function seedDemoUsers(
         passwordHash: await hashPassword(demoPassword),
       })),
     ),
+    skipDuplicates: true,
+  });
+  return result.count;
+}
+
+export async function seedDemoOrganizer(
+  database: SeedUserDatabase,
+  databaseUrl: string,
+  nodeEnv: string | undefined,
+): Promise<number> {
+  if (!isLocalDemoSeed(databaseUrl, nodeEnv))
+    throw new Error(
+      'Demo organizer may only be seeded into a local database outside production',
+    );
+  const result = await database.user.createMany({
+    data: [
+      {
+        email: 'demo.organizer@example.com',
+        passwordHash: await hashPassword(demoPassword),
+        role: 'ORGANIZER',
+      },
+    ],
     skipDuplicates: true,
   });
   return result.count;

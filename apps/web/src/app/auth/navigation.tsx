@@ -10,6 +10,9 @@ export async function AuthNavigation() {
     <nav className="auth-nav" aria-label="Account">
       {user ? (
         <>
+          {user.role === 'ORGANIZER' && (
+            <Link href="/organizer">Manage events</Link>
+          )}
           <Link href="/account">My account</Link>
           <form action={signOut}>
             <button type="submit">Sign out</button>

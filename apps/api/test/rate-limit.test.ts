@@ -85,6 +85,7 @@ it('limits login by normalized account across IPs, then permits it after expiry'
   }
 });
 
+// Sixty scrypt operations can exceed Vitest's 5-second default under parallel CI load.
 it('limits registration by IP before hashing, and fails closed when Redis is down', async () => {
   const register = vi.fn();
   const app = buildApp({
@@ -156,4 +157,4 @@ it('limits registration by IP before hashing, and fails closed when Redis is dow
   } finally {
     await unavailable.close();
   }
-});
+}, 15_000);

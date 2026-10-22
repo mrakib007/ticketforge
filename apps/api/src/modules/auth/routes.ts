@@ -113,7 +113,11 @@ export function registerAuthRoutes(
         if (!user || !valid)
           return reply.code(401).send({ error: 'Invalid credentials' });
         return reply.send(
-          await issueSession({ id: user.id, email: user.email }),
+          await issueSession({
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          }),
         );
       } catch (error) {
         request.log.error({ err: error }, 'Login failed');

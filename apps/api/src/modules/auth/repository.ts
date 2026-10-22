@@ -29,7 +29,7 @@ export function createAuthRepository(database: PrismaClient): AuthRepository {
         return await database.$transaction(async (tx) => {
           const user = await tx.user.create({
             data: { email, passwordHash },
-            select: { id: true, email: true },
+            select: { id: true, email: true, role: true },
           });
           await tx.session.create({
             data: { userId: user.id, tokenHash, expiresAt },
@@ -48,7 +48,7 @@ export function createAuthRepository(database: PrismaClient): AuthRepository {
     findUser(email) {
       return database.user.findUnique({
         where: { email },
-        select: { id: true, email: true, passwordHash: true },
+        select: { id: true, email: true, role: true, passwordHash: true },
       });
     },
     async createSession(userId, tokenHash, expiresAt) {
@@ -59,7 +59,7 @@ export function createAuthRepository(database: PrismaClient): AuthRepository {
         where: { tokenHash },
         select: {
           expiresAt: true,
-          user: { select: { id: true, email: true } },
+          user: { select: { id: true, email: true, role: true } },
         },
       });
       return row && row.expiresAt > new Date() ? row.user : null;

@@ -9,6 +9,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ATTENDEE
+  ORGANIZER
+}
+
 model Event {
   id          String   @id @default(uuid()) @db.Uuid
   title       String
@@ -20,8 +25,11 @@ model Event {
   capacity    Int      @default(0)
   bookedSeats Int      @default(0)
   bookings    Booking[]
+  organizerId String?  @db.Uuid
+  organizer   User?     @relation("OrganizedEvents", fields: [organizerId], references: [id], onDelete: Restrict)
 
   @@index([published, startsAt])
+  @@index([organizerId, startsAt])
 }
 
 model User {
@@ -31,6 +39,8 @@ model User {
   createdAt    DateTime  @default(now()) @db.Timestamptz(3)
   sessions     Session[]
   bookings     Booking[]
+  role         UserRole  @default(ATTENDEE)
+  organizedEvents Event[] @relation("OrganizedEvents")
 }
 
 model Session {

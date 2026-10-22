@@ -1,6 +1,6 @@
 # TicketForge
 
-A learning-oriented, production-inspired ticketing platform with an event catalogue, email/password accounts, and capacity-based ticket bookings. There is no seat selection, payment processing, or event management UI yet. One Git repository contains two independently runnable applications and a shared contracts package.
+A learning-oriented, production-inspired ticketing platform with an event catalogue, email/password accounts, capacity-based ticket bookings, and organizer-owned event management. There is no seat selection or payment processing yet. One Git repository contains two independently runnable applications and a shared contracts package.
 
 ## Requirements
 
@@ -36,11 +36,11 @@ npm run dev
 
 Keep the existing `.env` and `apps/api/.env` files; copying the examples again would overwrite your local credentials. Run `npm ci` after dependency or lockfile changes (or if `node_modules` is missing). `db:deploy` is safe to repeat and applies only pending migrations. `db:seed` is optional and adds two sample published events without duplicating them on repeated runs. On local databases outside production, it also creates two demo accounts: `demo.alice@example.com` and `demo.bob@example.com`, both with password `DemoPassword2026!`. These are public test credentials; never use them for real accounts. Rerunning the seed does not reset existing passwords. Demo users are skipped for non-local databases and in production.
 
-If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness.
+If Compose cannot bind port `5432` because another PostgreSQL instance is using it, choose a free `POSTGRES_PORT` in the root `.env` (for example, `5433`) and change the port in `DATABASE_URL` in `apps/api/.env` to match. Then rerun `docker compose up -d`. If you use a hosted database instead, keep its URL in `apps/api/.env`; the local PostgreSQL container is not needed for API readiness. Local seeding also creates a demo organizer as described below.
 
 Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server and shows PostgreSQL readiness. Browse **http://127.0.0.1:3000/events** for upcoming published events and select one for its details (times displayed in UTC). Create an account at **/register**, sign in at **/login**, book 1–10 tickets on an event page, and view your bookings at **/account**. The API exposes `GET /events` (up to 50 upcoming events, ordered by start) and `GET /events/:id` (published events only). Visit **http://127.0.0.1:3001/health/live** (process alive) and **http://127.0.0.1:3001/health/ready** (database reachable). Until PostgreSQL is available, live returns `200` and ready returns `503`; the UI safely says unavailable. The API can start before PostgreSQL and will report readiness as soon as the DB comes online.
 
-`npm run dev` starts both apps; use `npm run dev -w @ticketforge/api` and `npm run dev -w @ticketforge/web` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive).
+`npm run dev` starts both apps; use `npm run dev -w @ticketforge/api` and `npm run dev -w @ticketforge/web` in separate terminals if preferred. To stop infrastructure: `docker compose down`. To **delete local service data**, explicitly run `docker compose down -v` (destructive). See **Organizer events** below for the additional local seeded organizer and the complete two-sided demo flow.
 
 ## Commands
 
@@ -115,6 +115,14 @@ Redis now holds expiring, atomic counters for both auth endpoints (set the serve
 
 `POST /bookings/:id/cancel` requires the owner's bearer token. Cancellation is allowed strictly before the event start according to PostgreSQL's clock; at or after the start it returns 409. Missing bookings and other users' bookings return 404. The first cancellation and subsequent repeats return 200 (with `ok` or `already-cancelled` status). A transaction marks the booking cancelled and releases its quantity from `bookedSeats` exactly once. Cancelled bookings remain visible in `GET /bookings`, and retrying their original creation key returns the cancelled booking without reclaiming seats. The account page shows status and a cancel button while the booking is eligible.
 
+## Organizer events
+
+Public registration always creates an attendee. On **local databases only**, `npm run db:seed` also creates `demo.organizer@example.com` with password `DemoPassword2026!` (alongside the two attendee demo accounts). These public test credentials must never be used for real accounts. Reseeding does not reset passwords or promote an existing account with that email. Production organizer provisioning is not implemented; there is no public promotion endpoint.
+
+Sign in as the demo organizer and open **/organizer** to create a draft event, edit it, and publish it. Sign in as an attendee in another browser session to book it; refresh the organizer dashboard to see booked/remaining tickets and active/cancelled booking totals. Cancelling before the event starts releases capacity. Drafts never appear in the public catalogue.
+
+The API supports `GET /organizer/events` (up to 50 owned events), `POST /organizer/events` (new draft), `GET` and `PATCH /organizer/events/:id`, and `POST /organizer/events/:id/publish` or `/unpublish`. An organizer can access only their own events; seeded legacy events remain publicly bookable but unowned and uneditable. Schedules are entered as UTC. Published events with active bookings allow text changes and capacity increases only; venue, dates, reductions and unpublishing are blocked. With no active bookings, capacity may decrease and publishing can be reversed before the start. No edits are allowed once an event starts. These rules serialize on the PostgreSQL event row alongside booking changes, so inventory stays authoritative. Reporting exposes counts, never attendee details. This milestone does not include payments, issued tickets, or admin onboarding.
+
 ## Repository map
 
 ```text
@@ -131,4 +139,4 @@ docker-compose.yml        Local PostgreSQL, Redis, Kafka (single-node KRaft)
 
 See [`docs/architecture/foundation.md`](docs/architecture/foundation.md) for why the pieces fit together this way, alternatives, and trade-offs.
 
-See [the backlog](TODO.md) for the next booking task and deferred features.
+See [the backlog](TODO.md) for deferred features.

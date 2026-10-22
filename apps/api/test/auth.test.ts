@@ -6,10 +6,11 @@ import type { AuthRepository } from '../src/modules/auth/repository.js';
 const user = {
   id: '4cbaea02-4660-4f11-9e3f-207d5fe34609',
   email: 'reader@example.com',
+  role: 'ATTENDEE' as const,
 };
 const accounts = new Map<
   string,
-  { id: string; email: string; passwordHash: string }
+  { id: string; email: string; role: 'ATTENDEE'; passwordHash: string }
 >();
 const sessions = new Map<string, { userId: string; expiresAt: Date }>();
 const repository: AuthRepository = {

@@ -7,7 +7,7 @@ it('uses server-side API for registration and accepts only valid credentials', a
   const fetch = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({
-      user: { id: 'abc', email: 'reader@example.com' },
+      user: { id: 'abc', email: 'reader@example.com', role: 'ATTENDEE' },
       token: 'a'.repeat(64),
     }),
   });
@@ -16,7 +16,7 @@ it('uses server-side API for registration and accepts only valid credentials', a
     await authenticate('register', 'reader@example.com', 'long password'),
   ).toEqual({
     status: 'ok',
-    user: { id: 'abc', email: 'reader@example.com' },
+    user: { id: 'abc', email: 'reader@example.com', role: 'ATTENDEE' },
     token: 'a'.repeat(64),
   });
   expect(fetch).toHaveBeenCalledWith(
