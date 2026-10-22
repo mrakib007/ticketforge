@@ -51,7 +51,15 @@ it('reads cinema listings, schedules and layouts through the server API', async 
       ok: true,
       json: async () => ({
         ...screening,
-        seats: [{ rowLabel: 'A', seatNumber: 1, category: 'STANDARD' }],
+        seats: [
+          {
+            id,
+            rowLabel: 'A',
+            seatNumber: 1,
+            category: 'STANDARD',
+            booked: false,
+          },
+        ],
       }),
     });
   vi.stubGlobal('fetch', fetch);

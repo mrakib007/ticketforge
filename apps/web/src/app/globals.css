@@ -928,6 +928,28 @@ footer {
   border-radius: 8px 8px 3px 3px;
   background: white;
   font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.cinema-seat[data-booked='true'] {
+  background: var(--ink);
+  color: white;
+  cursor: not-allowed;
+}
+.cinema-seat[data-selected='true'] {
+  background: #dfaa70;
+  border-color: #804f2d;
+  color: var(--ink);
+}
+.cinema-seat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.cinema-seat-actions p {
+  flex-basis: 100%;
 }
 
 /* An editorial visual language shared by discovery, booking and account pages. */

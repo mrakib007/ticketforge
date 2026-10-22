@@ -11,6 +11,8 @@ import { registerOrganizerRoutes } from './modules/organizer/routes.js';
 import type { OrganizerRepository } from './modules/organizer/repository.js';
 import type { CinemaReader } from './modules/cinema/repository.js';
 import { registerCinemaRoutes } from './modules/cinema/routes.js';
+import { registerCinemaBookingRoutes } from './modules/cinema-bookings/routes.js';
+import type { CinemaBookingRepository } from './modules/cinema-bookings/repository.js';
 
 export function buildApp(deps: {
   checkDatabase: () => Promise<boolean>;
@@ -21,6 +23,7 @@ export function buildApp(deps: {
   sessionReader?: Pick<AuthRepository, 'findSession'>;
   organizers?: OrganizerRepository;
   cinemas?: CinemaReader;
+  cinemaBookings?: CinemaBookingRepository;
 }): FastifyInstance {
   const app = Fastify({
     logger: process.env.NODE_ENV !== 'test',
@@ -31,6 +34,8 @@ export function buildApp(deps: {
   if (deps.cinemas) registerCinemaRoutes(app, deps.cinemas);
   if (deps.auth) registerAuthRoutes(app, deps.auth, deps.authRateLimiter);
   const sessions = deps.sessionReader ?? deps.auth;
+  if (deps.cinemaBookings && sessions)
+    registerCinemaBookingRoutes(app, deps.cinemaBookings, sessions);
   if (deps.bookings && sessions)
     registerBookingRoutes(app, deps.bookings, sessions);
   if (deps.organizers && sessions)

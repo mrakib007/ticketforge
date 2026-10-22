@@ -41,6 +41,7 @@ model User {
   bookings     Booking[]
   role         UserRole  @default(ATTENDEE)
   organizedEvents Event[] @relation("OrganizedEvents")
+  cinemaBookings CinemaBooking[]
 }
 
 model Session {
@@ -118,6 +119,7 @@ model Seat {
   seatNumber   Int
   category     String     @default("STANDARD")
   isActive     Boolean    @default(true)
+  reservations CinemaBookingSeat[]
 
   @@unique([auditoriumId, rowLabel, seatNumber])
 }
@@ -135,7 +137,38 @@ model Screening {
   currency         String          @db.VarChar(3)
   status           ScreeningStatus @default(DRAFT)
   createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  bookings         CinemaBooking[]
+  reservations     CinemaBookingSeat[]
 
   @@index([auditoriumId, startsAt])
   @@index([status, startsAt])
+}
+
+model CinemaBooking {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  screeningId    String   @db.Uuid
+  screening      Screening @relation(fields: [screeningId], references: [id], onDelete: Restrict)
+  idempotencyKey String   @db.Uuid
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  seats          CinemaBookingSeat[]
+
+  @@unique([userId, idempotencyKey])
+  @@unique([id, userId, screeningId])
+  @@index([userId, screeningId])
+}
+
+model CinemaBookingSeat {
+  bookingId   String @db.Uuid
+  userId      String @db.Uuid
+  screeningId String @db.Uuid
+  seatId      String @db.Uuid
+  booking     CinemaBooking @relation(fields: [bookingId, userId, screeningId], references: [id, userId, screeningId], onDelete: Restrict)
+  screening   Screening @relation(fields: [screeningId], references: [id], onDelete: Restrict)
+  seat        Seat @relation(fields: [seatId], references: [id], onDelete: Restrict)
+
+  @@id([bookingId, seatId])
+  @@unique([screeningId, seatId])
+  @@index([userId, screeningId])
 }

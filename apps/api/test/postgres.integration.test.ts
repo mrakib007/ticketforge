@@ -12,6 +12,7 @@ import { createAuthRepository } from '../src/modules/auth/repository.js';
 import { createBookingRepository } from '../src/modules/bookings/repository.js';
 import { createOrganizerRepository } from '../src/modules/organizer/repository.js';
 import { createCinemaReader } from '../src/modules/cinema/repository.js';
+import { createCinemaBookingRepository } from '../src/modules/cinema-bookings/repository.js';
 import { demoCinemaId, seedCinema } from '../src/db/seed-cinema.js';
 import { seedDemoUsers, seedDemoOrganizer } from '../src/db/seed-users.js';
 import { verifyPassword } from '../src/modules/auth/password.js';
@@ -34,6 +35,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     bookings: createBookingRepository(database),
     organizers: createOrganizerRepository(database),
     cinemas: createCinemaReader(database),
+    cinemaBookings: createCinemaBookingRepository(database),
   });
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -83,7 +85,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     );
     expect(showDetail.statusCode).toBe(200);
     expect(showDetail.json().seats).toHaveLength(100);
-    expect(showDetail.json()).not.toHaveProperty('remainingSeats');
+    expect(showDetail.json().seats[0]).toMatchObject({ booked: false });
     const auditorium = await database.auditorium.findFirstOrThrow();
     const movie = await database.movie.findFirstOrThrow();
     const alternateStart = new Date(Date.now() + 20 * 86_400_000);
@@ -231,6 +233,124 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     expect(registration.json().user.role).toBe('ATTENDEE');
     const token = registration.json().token as string;
     const headers = { authorization: `Bearer ${token}` };
+    const seatIds = (showDetail.json().seats as { id: string }[]).map(
+      (seat) => seat.id,
+    );
+    const bookingUrl = `/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}/bookings`;
+    const keyA = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1';
+    const keyB = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2';
+    const reserve = (ids: string[], key: string, auth = headers) =>
+      app.inject({
+        method: 'POST',
+        url: bookingUrl,
+        headers: { ...auth, 'idempotency-key': key },
+        payload: { seatIds: ids },
+      });
+    const firstCinemaBooking = await reserve(seatIds.slice(0, 6), keyA);
+    expect(firstCinemaBooking.statusCode, firstCinemaBooking.body).toBe(201);
+    expect(
+      (await reserve([...seatIds.slice(0, 6)].reverse(), keyA)).statusCode,
+    ).toBe(200);
+    expect((await reserve(seatIds.slice(6, 7), keyA)).statusCode).toBe(409);
+    expect((await reserve(seatIds.slice(6, 10), keyB)).statusCode).toBe(201);
+    expect(
+      (
+        await reserve(
+          seatIds.slice(10, 11),
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee3',
+        )
+      ).json().error,
+    ).toMatch(/Maximum 10/);
+    expect(
+      (await app.inject(`/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}`))
+        .json()
+        .seats.filter((seat: { booked: boolean }) => seat.booked),
+    ).toHaveLength(10);
+    const second = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: 'cinema.bob@example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    const cinemaUserHeaders = {
+      authorization: `Bearer ${second.json().token as string}`,
+    };
+    expect(
+      (
+        await reserve(
+          seatIds.slice(0, 1),
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee4',
+          cinemaUserHeaders,
+        )
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await reserve(
+          seatIds.slice(10, 11),
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5',
+          cinemaUserHeaders,
+        )
+      ).statusCode,
+    ).toBe(201);
+    expect(
+      (
+        await reserve(
+          seatIds.slice(11, 12),
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee6',
+          cinemaUserHeaders,
+        )
+      ).statusCode,
+    ).toBe(201);
+    const concurrentCinemaBookings = await Promise.all([
+      reserve(
+        seatIds.slice(12, 20),
+        'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee7',
+        cinemaUserHeaders,
+      ),
+      reserve(
+        seatIds.slice(20, 28),
+        'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee8',
+        cinemaUserHeaders,
+      ),
+    ]);
+    expect(
+      concurrentCinemaBookings.map((response) => response.statusCode).sort(),
+    ).toEqual([201, 409]);
+    expect(
+      await database.cinemaBookingSeat.count({
+        where: {
+          userId: second.json().user.id as string,
+          screeningId: shows[0]!.id,
+        },
+      }),
+    ).toBe(10);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/auth/logout',
+          headers: cinemaUserHeaders,
+        })
+      ).statusCode,
+    ).toBe(204);
+    // An alternate SQL/Prisma client cannot bypass the per-person cap.
+    await expect(
+      database.cinemaBookingSeat.create({
+        data: {
+          bookingId: (
+            await database.cinemaBooking.findFirstOrThrow({
+              where: { userId: registration.json().user.id as string },
+            })
+          ).id,
+          userId: registration.json().user.id as string,
+          screeningId: shows[0]!.id,
+          seatId: seatIds[12]!,
+        },
+      }),
+    ).rejects.toThrow();
     const storedSession = await database.session.findFirstOrThrow();
     expect(storedSession.tokenHash).not.toBe(token);
     expect(storedSession.tokenHash).toMatch(/^[a-f0-9]{64}$/);

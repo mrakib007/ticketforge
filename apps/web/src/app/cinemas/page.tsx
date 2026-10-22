@@ -17,10 +17,13 @@ export default async function CinemasPage() {
         <span className="section-index">CINEMA PREVIEW</span>
         <h1>At the movies.</h1>
         <p>
-          Explore fictional demo screenings and prices. Seat booking and payment
-          are not available yet.
+          Explore fictional demo movies and showtimes. Choose seats for a free
+          demo reservation; no payment is taken.
         </p>
       </header>
+      <p>
+        <Link href="/cinemas/my-bookings">View your cinema bookings →</Link>
+      </p>
       {result.status !== 'ok' ? (
         <p role="status">Cinemas are temporarily unavailable.</p>
       ) : result.value.length === 0 ? (

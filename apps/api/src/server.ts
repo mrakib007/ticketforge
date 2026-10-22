@@ -9,6 +9,7 @@ import { createRedisRateLimitStore } from './modules/auth/redis-rate-limit.js';
 import { createBookingRepository } from './modules/bookings/repository.js';
 import { createOrganizerRepository } from './modules/organizer/repository.js';
 import { createCinemaReader } from './modules/cinema/repository.js';
+import { createCinemaBookingRepository } from './modules/cinema-bookings/repository.js';
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -24,6 +25,7 @@ async function main(): Promise<void> {
     bookings: createBookingRepository(database),
     organizers: createOrganizerRepository(database),
     cinemas: createCinemaReader(database),
+    cinemaBookings: createCinemaBookingRepository(database),
     authRateLimiter: createAuthRateLimiter(redis.store),
   });
   const stopSessionCleanup = startSessionCleanup(auth, app.log);

@@ -79,7 +79,8 @@ export default async function MoviePage({
         ))}
       </ul>
       <p>
-        Layout previews only. Seat selection and checkout are not available yet.
+        Select a showtime to choose seats. Reservations are free in this demo;
+        no payment is taken.
       </p>
     </main>
   );

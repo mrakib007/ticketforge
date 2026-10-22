@@ -7,6 +7,7 @@ import {
   fetchCinema,
   fetchScreening,
 } from '../../../../../lib/cinema';
+import { SeatPicker } from './seat-picker';
 
 export const dynamic = 'force-dynamic';
 export default async function ScreeningPage({
@@ -52,28 +53,7 @@ export default async function ScreeningPage({
       </header>
       <section aria-labelledby="seat-heading">
         <h2 id="seat-heading">Auditorium layout</h2>
-        <p role="status">
-          Layout preview only. These are physical seats,{' '}
-          <strong>not live availability</strong>. Seat selection and checkout
-          are not available yet.
-        </p>
-        <div className="cinema-seat-scroll">
-          <div className="cinema-seat-layout">
-            <div className="cinema-screen">SCREEN</div>
-            <div className="cinema-seat-map">
-              {show.seats.map((seat) => (
-                <span
-                  className="cinema-seat"
-                  key={`${seat.rowLabel}-${seat.seatNumber}`}
-                  title={seat.category}
-                >
-                  {seat.rowLabel}
-                  {seat.seatNumber}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <SeatPicker cinemaId={id} screening={show} />
       </section>
     </main>
   );

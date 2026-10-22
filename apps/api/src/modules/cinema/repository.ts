@@ -117,7 +117,17 @@ export function createCinemaReader(database: PrismaClient): CinemaReader {
               name: true,
               seats: {
                 where: { isActive: true },
-                select: { rowLabel: true, seatNumber: true, category: true },
+                select: {
+                  id: true,
+                  rowLabel: true,
+                  seatNumber: true,
+                  category: true,
+                  reservations: {
+                    where: { screeningId },
+                    select: { seatId: true },
+                    take: 1,
+                  },
+                },
                 orderBy: [{ rowLabel: 'asc' }, { seatNumber: 'asc' }],
                 take: 500,
               },
@@ -127,7 +137,13 @@ export function createCinemaReader(database: PrismaClient): CinemaReader {
       });
       if (!row) return null;
       const { seats, ...auditorium } = row.auditorium;
-      return { ...present({ ...row, auditorium }), seats };
+      return {
+        ...present({ ...row, auditorium }),
+        seats: seats.map(({ reservations, ...seat }) => ({
+          ...seat,
+          booked: reservations.length > 0,
+        })),
+      };
     },
   };
 }

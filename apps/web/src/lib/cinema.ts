@@ -76,6 +76,9 @@ function screeningDetail(value: unknown): value is PublicScreeningDetail {
     value.seats.every(
       (seat: unknown) =>
         record(seat) &&
+        typeof seat.id === 'string' &&
+        uuid.test(seat.id) &&
+        typeof seat.booked === 'boolean' &&
         typeof seat.rowLabel === 'string' &&
         typeof seat.seatNumber === 'number' &&
         Number.isInteger(seat.seatNumber) &&

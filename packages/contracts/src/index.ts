@@ -82,5 +82,26 @@ export interface PublicScreening {
 }
 
 export interface PublicScreeningDetail extends PublicScreening {
-  seats: { rowLabel: string; seatNumber: number; category: string }[];
+  seats: {
+    id: string;
+    rowLabel: string;
+    seatNumber: number;
+    category: string;
+    booked: boolean;
+  }[];
+}
+
+export interface PublicCinemaBooking {
+  id: string;
+  screeningId: string;
+  seatIds: string[];
+  createdAt: string;
+}
+
+export interface PublicCinemaBookingReceipt extends PublicCinemaBooking {
+  cinemaId: string;
+  cinemaName: string;
+  movieTitle: string;
+  startsAt: string;
+  seats: { rowLabel: string; seatNumber: number }[];
 }

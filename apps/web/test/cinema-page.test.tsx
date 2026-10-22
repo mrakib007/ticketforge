@@ -27,7 +27,15 @@ const screening = {
   bookingClosesAt: '2028-07-12T11:45:00.000Z',
   priceMinor: 1200,
   currency: 'USD',
-  seats: [{ rowLabel: 'A', seatNumber: 1, category: 'STANDARD' }],
+  seats: [
+    {
+      id: cinema.id,
+      rowLabel: 'A',
+      seatNumber: 1,
+      category: 'STANDARD',
+      booked: false,
+    },
+  ],
 };
 const otherScreening = {
   ...screening,
@@ -43,6 +51,7 @@ vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('404');
   },
+  useRouter: () => ({ refresh: vi.fn() }),
 }));
 vi.mock('../src/lib/cinema', async () => ({
   fetchCinemas: async () => ({ status: 'ok', value: [cinema] }),
@@ -98,7 +107,7 @@ it('shows only the chosen movie’s screenings with links to their layouts', asy
   ).rejects.toThrow('404');
 });
 
-it('shows a physical layout without offering booking or claiming live availability', async () => {
+it('shows bookable seats for the chosen showtime without claiming payment', async () => {
   const { default: Screening } = await import(
     '../src/app/cinemas/[id]/screenings/[screeningId]/page'
   );
@@ -110,8 +119,8 @@ it('shows a physical layout without offering booking or claiming live availabili
   expect(html).toContain('A1');
   expect(html).toContain(`/cinemas/${cinema.id}/movies/${screening.movie.id}`);
   expect(html).toContain('cinema-seat-scroll');
-  expect(html).toContain('not live availability');
-  expect(html).not.toContain('Reserve seat');
+  expect(html).toContain('Confirm seats');
+  expect(html).toContain('No payment is taken');
   const css = readFileSync(
     new URL('../src/app/globals.css', import.meta.url),
     'utf8',

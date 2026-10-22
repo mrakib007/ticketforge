@@ -86,6 +86,7 @@ export default async function Account({
         </Link>
         <div className="auth-nav">
           <Link href="/events">Browse events</Link>
+          <Link href="/cinemas/my-bookings">Cinema seats</Link>
           {user.role === 'ORGANIZER' && (
             <Link href="/organizer">Manage events</Link>
           )}
