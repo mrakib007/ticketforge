@@ -9,6 +9,8 @@ import { registerBookingRoutes } from './modules/bookings/routes.js';
 import type { BookingRepository } from './modules/bookings/repository.js';
 import { registerOrganizerRoutes } from './modules/organizer/routes.js';
 import type { OrganizerRepository } from './modules/organizer/repository.js';
+import type { CinemaReader } from './modules/cinema/repository.js';
+import { registerCinemaRoutes } from './modules/cinema/routes.js';
 
 export function buildApp(deps: {
   checkDatabase: () => Promise<boolean>;
@@ -18,6 +20,7 @@ export function buildApp(deps: {
   bookings?: BookingRepository;
   sessionReader?: Pick<AuthRepository, 'findSession'>;
   organizers?: OrganizerRepository;
+  cinemas?: CinemaReader;
 }): FastifyInstance {
   const app = Fastify({
     logger: process.env.NODE_ENV !== 'test',
@@ -25,6 +28,7 @@ export function buildApp(deps: {
   });
   registerHealthRoutes(app, deps.checkDatabase);
   if (deps.events) registerEventRoutes(app, deps.events);
+  if (deps.cinemas) registerCinemaRoutes(app, deps.cinemas);
   if (deps.auth) registerAuthRoutes(app, deps.auth, deps.authRateLimiter);
   const sessions = deps.sessionReader ?? deps.auth;
   if (deps.bookings && sessions)

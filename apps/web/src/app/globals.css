@@ -885,3 +885,32 @@ footer {
 .organizer-publish button {
   cursor: pointer;
 }
+.cinema-page {
+  padding-bottom: 96px;
+}
+.cinema-screen {
+  max-width: 720px;
+  margin: 30px 0;
+  padding: 12px;
+  text-align: center;
+  letter-spacing: 0.3em;
+  background: var(--line);
+  border-radius: 50% 50% 3px 3px;
+}
+.cinema-seat-map {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(36px, 56px));
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 720px;
+  padding: 8px 0 24px;
+}
+.cinema-seat {
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px 8px 3px 3px;
+  background: white;
+  font-size: 13px;
+}

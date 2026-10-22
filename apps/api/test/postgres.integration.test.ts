@@ -11,6 +11,8 @@ import { createEventReader } from '../src/modules/events/repository.js';
 import { createAuthRepository } from '../src/modules/auth/repository.js';
 import { createBookingRepository } from '../src/modules/bookings/repository.js';
 import { createOrganizerRepository } from '../src/modules/organizer/repository.js';
+import { createCinemaReader } from '../src/modules/cinema/repository.js';
+import { demoCinemaId, seedCinema } from '../src/db/seed-cinema.js';
 import { seedDemoUsers, seedDemoOrganizer } from '../src/db/seed-users.js';
 import { verifyPassword } from '../src/modules/auth/password.js';
 
@@ -31,6 +33,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     auth: createAuthRepository(database),
     bookings: createBookingRepository(database),
     organizers: createOrganizerRepository(database),
+    cinemas: createCinemaReader(database),
   });
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -48,6 +51,109 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     const response = await app.inject('/health/ready');
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ status: 'ok' });
+    await seedCinema(database);
+    await seedCinema(database);
+    expect(await database.cinema.count()).toBe(1);
+    expect(await database.movie.count()).toBe(6);
+    expect(await database.auditorium.count()).toBe(1);
+    expect(await database.seat.count()).toBe(100);
+    expect(await database.screening.count()).toBe(28);
+    const cinemaList = await app.inject('/cinemas');
+    expect(cinemaList.statusCode).toBe(200);
+    expect(cinemaList.json().cinemas[0]).toMatchObject({
+      id: demoCinemaId,
+      isDemo: true,
+    });
+    const cinemaShows = await app.inject(`/cinemas/${demoCinemaId}/screenings`);
+    expect(cinemaShows.statusCode).toBe(200);
+    expect(cinemaShows.json().screenings).toHaveLength(28);
+    const shows = cinemaShows.json().screenings as {
+      id: string;
+      startsAt: string;
+      bookingClosesAt: string;
+    }[];
+    expect(new Set(shows.slice(0, 4).map((show) => show.id)).size).toBe(4);
+    expect(
+      shows.every(
+        (show) => Date.parse(show.bookingClosesAt) < Date.parse(show.startsAt),
+      ),
+    ).toBe(true);
+    const showDetail = await app.inject(
+      `/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}`,
+    );
+    expect(showDetail.statusCode).toBe(200);
+    expect(showDetail.json().seats).toHaveLength(100);
+    expect(showDetail.json()).not.toHaveProperty('remainingSeats');
+    const auditorium = await database.auditorium.findFirstOrThrow();
+    const movie = await database.movie.findFirstOrThrow();
+    const alternateStart = new Date(Date.now() + 20 * 86_400_000);
+    const alternateEnd = new Date(alternateStart.getTime() + 2 * 3_600_000);
+    const fields = {
+      auditoriumId: auditorium.id,
+      movieId: movie.id,
+      startsAt: alternateStart,
+      endsAt: alternateEnd,
+      bookingClosesAt: new Date(alternateStart.getTime() - 900_000),
+      priceMinor: 1200,
+      currency: 'USD',
+      status: 'PUBLISHED' as const,
+    };
+    const [firstClaim, overlap] = await Promise.allSettled([
+      database.screening.create({ data: fields }),
+      database.screening.create({
+        data: {
+          ...fields,
+          startsAt: new Date(alternateStart.getTime() + 3_600_000),
+          endsAt: new Date(alternateEnd.getTime() + 3_600_000),
+        },
+      }),
+    ]);
+    expect([firstClaim.status, overlap.status].sort()).toEqual([
+      'fulfilled',
+      'rejected',
+    ]);
+    await expect(
+      database.screening.create({
+        data: { ...fields, bookingClosesAt: alternateEnd },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      database.seat.create({
+        data: { auditoriumId: auditorium.id, rowLabel: 'A', seatNumber: 1 },
+      }),
+    ).rejects.toThrow();
+    const hidden = await database.screening.create({
+      data: {
+        ...fields,
+        status: 'DRAFT',
+        startsAt: new Date(alternateEnd.getTime() + 3_600_000),
+        endsAt: new Date(alternateEnd.getTime() + 5 * 3_600_000),
+        bookingClosesAt: new Date(alternateEnd.getTime() + 3_600_000 - 900_000),
+      },
+    });
+    expect(
+      (await app.inject(`/cinemas/${demoCinemaId}/screenings/${hidden.id}`))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await app.inject(`/cinemas/${demoCinemaId}/screenings`)).json()
+        .screenings,
+    ).toHaveLength(29);
+    const soon = new Date(Date.now() + 2 * 3_600_000);
+    const closed = await database.screening.create({
+      data: {
+        ...fields,
+        startsAt: soon,
+        endsAt: new Date(soon.getTime() + 7_200_000),
+        bookingClosesAt: new Date(Date.now() - 3_600_000),
+      },
+    });
+    // A future screening remains visible after its booking cutoff; no seat
+    // selection exists yet and the API never claims that it is available.
+    expect(
+      (await app.inject(`/cinemas/${demoCinemaId}/screenings/${closed.id}`))
+        .statusCode,
+    ).toBe(200);
     expect(await seedDemoUsers(database, databaseUrl, 'development')).toBe(2);
     expect(await seedDemoOrganizer(database, databaseUrl, 'development')).toBe(
       1,

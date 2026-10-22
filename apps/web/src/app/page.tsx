@@ -38,6 +38,9 @@ export default async function Home() {
           <Link className="button-secondary" href="/account">
             My bookings →
           </Link>
+          <Link className="button-secondary" href="/cinemas">
+            Cinema preview →
+          </Link>
         </div>
         <div className="hero-meta">
           <span>CURATED EXPERIENCES</span>

@@ -68,3 +68,74 @@ model Booking {
   @@index([userId, createdAt])
   @@index([eventId])
 }
+
+enum ScreeningStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+model Cinema {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  address     String
+  timeZone    String
+  imageUrl    String?
+  isDemo      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  auditoriums Auditorium[]
+}
+
+model Movie {
+  id              String      @id @default(uuid()) @db.Uuid
+  title           String
+  synopsis        String
+  durationMinutes Int
+  posterUrl       String?
+  releaseDate     DateTime?   @db.Date
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+  screenings      Screening[]
+}
+
+model Auditorium {
+  id         String      @id @default(uuid()) @db.Uuid
+  cinemaId   String      @db.Uuid
+  cinema     Cinema      @relation(fields: [cinemaId], references: [id], onDelete: Restrict)
+  name       String
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+  seats      Seat[]
+  screenings Screening[]
+
+  @@unique([cinemaId, name])
+}
+
+model Seat {
+  id           String     @id @default(uuid()) @db.Uuid
+  auditoriumId String     @db.Uuid
+  auditorium   Auditorium @relation(fields: [auditoriumId], references: [id], onDelete: Restrict)
+  rowLabel     String
+  seatNumber   Int
+  category     String     @default("STANDARD")
+  isActive     Boolean    @default(true)
+
+  @@unique([auditoriumId, rowLabel, seatNumber])
+}
+
+model Screening {
+  id               String          @id @default(uuid()) @db.Uuid
+  movieId          String          @db.Uuid
+  movie            Movie           @relation(fields: [movieId], references: [id], onDelete: Restrict)
+  auditoriumId     String          @db.Uuid
+  auditorium       Auditorium      @relation(fields: [auditoriumId], references: [id], onDelete: Restrict)
+  startsAt         DateTime        @db.Timestamptz(3)
+  endsAt           DateTime        @db.Timestamptz(3)
+  bookingClosesAt  DateTime        @db.Timestamptz(3)
+  priceMinor       Int
+  currency         String          @db.VarChar(3)
+  status           ScreeningStatus @default(DRAFT)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([auditoriumId, startsAt])
+  @@index([status, startsAt])
+}

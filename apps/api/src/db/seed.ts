@@ -1,6 +1,7 @@
 import { loadConfig } from '../config.js';
 import { createDatabase } from './client.js';
 import { seedEvents } from './seed-events.js';
+import { seedCinema } from './seed-cinema.js';
 import {
   isLocalDemoSeed,
   seedDemoOrganizer,
@@ -13,6 +14,8 @@ const database = createDatabase(config);
 try {
   await seedEvents(database);
   if (isLocalDemoSeed(config.databaseUrl, process.env.NODE_ENV)) {
+    await seedCinema(database);
+    console.log('Seeded fictional demo cinema and upcoming screenings');
     console.log(
       `Created ${await seedDemoUsers(database, config.databaseUrl, process.env.NODE_ENV)} demo users`,
     );
