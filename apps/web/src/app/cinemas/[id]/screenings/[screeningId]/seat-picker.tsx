@@ -119,12 +119,21 @@ export function SeatPicker({
     sessionStorage.setItem(storageKey(screening.id), JSON.stringify(attempt));
     setPending(attempt);
     setSending(true);
-    const result = await holdSeats(
-      cinemaId,
-      screening.id,
-      attempt.seatIds,
-      attempt.key,
-    );
+    let result: Awaited<ReturnType<typeof holdSeats>>;
+    try {
+      result = await holdSeats(
+        cinemaId,
+        screening.id,
+        attempt.seatIds,
+        attempt.key,
+      );
+    } catch {
+      // The server might already have committed the hold. Keep the same key
+      // and selection for a safe replay after a lost server-action response.
+      setStatus('unavailable');
+      setSending(false);
+      return;
+    }
     setSending(false);
     if (result.status === 'ok') {
       const saved = { ...attempt, holdId: result.hold.id };

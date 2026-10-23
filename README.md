@@ -6,6 +6,7 @@ A learning-oriented, production-inspired ticketing platform with an event catalo
 
 - Node.js **24 LTS** and npm **11.9.0** (included with Node.js 24.14.0).
 - Docker Desktop with Compose v2, running, for local PostgreSQL, Redis, Kafka and the container-backed test.
+- Chromium for browser tests: run `npx playwright install chromium` once after installing dependencies.
 - Free local ports **3000**, **3001**, **5432**, **6379**, **9092** (configurable infrastructure ports in `.env`).
 
 ## Get running
@@ -51,6 +52,7 @@ Open **http://127.0.0.1:3000**. The page checks the Fastify API on the server an
 | `npm test`                                  | API injection/config and frontend fetch tests; no Docker required |
 | `npm run test:db`                           | Real PostgreSQL Testcontainers integration test; requires Docker  |
 | `npm run test:redis`                        | Real Redis rate-limit integration test; requires Docker           |
+| `npm run test:e2e`                          | Isolated Chromium hold-flow tests; requires Docker and Chromium   |
 | `npm run db:generate`                       | Generate Prisma Client after schema changes                       |
 | `npm run db:validate`                       | Validate the Prisma schema                                        |
 | `npm run db:migrate -- --name create_users` | Create/apply a development migration                              |
@@ -122,6 +124,8 @@ The web app presents the existing event journey as discovery → event details �
 Run `npm run db:deploy` and then `npm run db:seed` against a **local, non-production database** to add one explicitly fictional cinema, one 100-seat auditorium, six fictional movies, and four future screenings per day for seven days. Rerunning the seed on the same day does not duplicate or overwrite these records. Open **/cinemas** to browse cinemas → movies → showtimes → seats. Times are shown in the cinema's configured time zone (UTC in this demo). No movie API, real cinema photos, or real cinema pricing is used.
 
 Signed-in users can temporarily hold specific seats before the showtime cutoff. **A hold is not a booking or paid ticket:** checkout is not available yet, no payment is taken, and the fictional prices are not charges. The browser keeps the selection and idempotency key in tab storage so an uncertain request can be retried; it displays the owner's hold and an informational countdown. A hold expires in at most 10 minutes and its seats become available without cleanup. Starting over in the browser does **not** release a hold early; it still expires at the original deadline. The API accepts `POST /cinemas/:id/screenings/:screeningId/holds` with `{ "seatIds": ["<uuid>"] }`, a bearer token, and a lowercase UUID `Idempotency-Key`; owner-only `GET /cinema-holds/:id` retrieves its status and USD price snapshot. The old free-booking creation POST now returns `410`; previous free reservations remain occupied and readable at **/cinemas/my-bookings**. See [the cinema plan](docs/architecture/cinema-booking-plan.md) for payment work and [the state machine](docs/architecture/cinema-checkout-state-machine.md) for the rollout rules.
+
+`npm run test:e2e` starts an **isolated, disposable PostgreSQL container**, migrates and seeds it, starts a temporary API and Next.js dev server on free local ports, and runs Chromium through the real browser flow. It does not modify your local Compose database or use your `.env` credentials. The test server uses `apps/web/.next-e2e` so it does not interfere with the normal development server or production build. This suite covers refresh, lost server-action responses and safe replay, occupied seats, and expiration/reclamation; it does **not** cover payment yet.
 
 ## Organizer events
 
