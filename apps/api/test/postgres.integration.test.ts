@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -239,13 +240,46 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     const bookingUrl = `/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}/bookings`;
     const keyA = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1';
     const keyB = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2';
-    const reserve = (ids: string[], key: string, auth = headers) =>
-      app.inject({
-        method: 'POST',
-        url: bookingUrl,
-        headers: { ...auth, 'idempotency-key': key },
-        payload: { seatIds: ids },
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: bookingUrl,
+          headers: { ...headers, 'idempotency-key': keyA },
+          payload: { seatIds: seatIds.slice(0, 1) },
+        })
+      ).statusCode,
+    ).toBe(410);
+    // Exercise the legacy repository directly to model already-confirmed
+    // reservations during rollout; the public free-write route is disabled.
+    const reserve = async (ids: string[], key: string, auth = headers) => {
+      const session = await database.session.findUniqueOrThrow({
+        where: {
+          tokenHash: createHash('sha256')
+            .update(auth.authorization.slice(7))
+            .digest('hex'),
+        },
       });
+      const result = await createCinemaBookingRepository(database).create(
+        session.userId,
+        demoCinemaId,
+        shows[0]!.id,
+        ids,
+        key,
+      );
+      const statusCode =
+        result.status === 'ok' ? (result.replayed ? 200 : 201) : 409;
+      const body = JSON.stringify(
+        result.status === 'limit'
+          ? { error: 'Maximum 10 tickets per person for this screening' }
+          : result,
+      );
+      return {
+        statusCode,
+        body,
+        json: () => JSON.parse(body) as Record<string, unknown>,
+      };
+    };
     const firstCinemaBooking = await reserve(seatIds.slice(0, 6), keyA);
     expect(firstCinemaBooking.statusCode, firstCinemaBooking.body).toBe(201);
     expect(

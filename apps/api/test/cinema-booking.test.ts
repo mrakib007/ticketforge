@@ -20,78 +20,26 @@ const app = buildApp({
 beforeEach(() => findSession.mockResolvedValue({ id: cinemaId }));
 afterEach(() => vi.resetAllMocks());
 
-it('requires authentication and validates cinema seat booking input', async () => {
+it('does not permit any new immediate free cinema bookings after hold cutover', async () => {
+  const response = await app.inject({
+    method: 'POST',
+    url: `/cinemas/${cinemaId}/screenings/${screeningId}/bookings`,
+    headers: {
+      authorization: `Bearer ${'a'.repeat(64)}`,
+      'idempotency-key': key,
+    },
+    payload: { seatIds: [seatId] },
+  });
+  expect(response.statusCode).toBe(410);
   expect(
     (
       await app.inject({
         method: 'POST',
         url: `/cinemas/${cinemaId}/screenings/${screeningId}/bookings`,
-        payload: { seatIds: [seatId] },
       })
     ).statusCode,
-  ).toBe(400);
-  const unauthenticated = await app.inject({
-    method: 'POST',
-    url: `/cinemas/${cinemaId}/screenings/${screeningId}/bookings`,
-    headers: { 'idempotency-key': key },
-    payload: { seatIds: [seatId] },
-  });
-  expect(unauthenticated.statusCode, unauthenticated.body).toBe(401);
-  const headers = {
-    authorization: `Bearer ${'a'.repeat(64)}`,
-    'idempotency-key': key,
-  };
-  for (const seatIds of [
-    [],
-    Array(11).fill(seatId),
-    [seatId, seatId],
-    ['bad-id'],
-  ]) {
-    expect(
-      (
-        await app.inject({
-          method: 'POST',
-          url: `/cinemas/${cinemaId}/screenings/${screeningId}/bookings`,
-          headers,
-          payload: { seatIds },
-        })
-      ).statusCode,
-    ).toBe(400);
-  }
+  ).toBe(410);
   expect(bookings.create).not.toHaveBeenCalled();
-});
-
-it('reports success, replay, conflicts, limit, and closed showtimes', async () => {
-  const headers = {
-    authorization: `Bearer ${'a'.repeat(64)}`,
-    'idempotency-key': key,
-  };
-  const send = () =>
-    app.inject({
-      method: 'POST',
-      url: `/cinemas/${cinemaId}/screenings/${screeningId}/bookings`,
-      headers,
-      payload: { seatIds: [seatId] },
-    });
-  for (const [result, code] of [
-    [{ status: 'ok', booking: { id: key }, replayed: false }, 201],
-    [{ status: 'ok', booking: { id: key }, replayed: true }, 200],
-    [{ status: 'taken' }, 409],
-    [{ status: 'limit' }, 409],
-    [{ status: 'conflict' }, 409],
-    [{ status: 'not-found' }, 404],
-  ] as const) {
-    bookings.create.mockResolvedValueOnce(result);
-    const response = await send();
-    expect(response.statusCode, response.body).toBe(code);
-  }
-  expect(bookings.create).toHaveBeenCalledWith(
-    cinemaId,
-    cinemaId,
-    screeningId,
-    [seatId],
-    key,
-  );
 });
 
 it('only returns the authenticated user’s cinema bookings', async () => {

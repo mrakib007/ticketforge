@@ -119,8 +119,9 @@ it('shows bookable seats for the chosen showtime without claiming payment', asyn
   expect(html).toContain('A1');
   expect(html).toContain(`/cinemas/${cinema.id}/movies/${screening.movie.id}`);
   expect(html).toContain('cinema-seat-scroll');
-  expect(html).toContain('Confirm seats');
+  expect(html).toContain('Hold seats');
   expect(html).toContain('No payment is taken');
+  expect(html).not.toContain('Confirm seats');
   const css = readFileSync(
     new URL('../src/app/globals.css', import.meta.url),
     'utf8',

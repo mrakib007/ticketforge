@@ -1,9 +1,12 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { reserveCinemaSeats } from '../../../../../lib/cinema-bookings';
+import {
+  holdCinemaSeats,
+  fetchCinemaHold,
+} from '../../../../../lib/cinema-bookings';
 
-export async function bookCinemaSeats(
+export async function holdSeats(
   cinemaId: string,
   screeningId: string,
   seatIds: string[],
@@ -11,5 +14,11 @@ export async function bookCinemaSeats(
 ) {
   const token = (await cookies()).get('ticketforge_session')?.value;
   if (!token) return { status: 'unauthorized' } as const;
-  return reserveCinemaSeats(token, cinemaId, screeningId, seatIds, key);
+  return holdCinemaSeats(token, cinemaId, screeningId, seatIds, key);
+}
+
+export async function getHold(id: string) {
+  const token = (await cookies()).get('ticketforge_session')?.value;
+  if (!token) return { status: 'unauthorized' } as const;
+  return fetchCinemaHold(token, id);
 }
