@@ -14,6 +14,7 @@ import { createBookingRepository } from '../src/modules/bookings/repository.js';
 import { createOrganizerRepository } from '../src/modules/organizer/repository.js';
 import { createCinemaReader } from '../src/modules/cinema/repository.js';
 import { createCinemaBookingRepository } from '../src/modules/cinema-bookings/repository.js';
+import { createCinemaHoldSettlementRepository } from '../src/modules/cinema-bookings/confirmation.js';
 import { demoCinemaId, seedCinema } from '../src/db/seed-cinema.js';
 import { seedDemoUsers, seedDemoOrganizer } from '../src/db/seed-users.js';
 import { verifyPassword } from '../src/modules/auth/password.js';
@@ -38,6 +39,7 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
     cinemas: createCinemaReader(database),
     cinemaBookings: createCinemaBookingRepository(database),
   });
+
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       await execFileAsync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
@@ -1299,3 +1301,226 @@ it('reports unavailable without exposing database credentials', async () => {
     await database.$disconnect();
   }
 }, 15_000);
+
+it('only confirms every owned, unexpired hold seat atomically, and keeps confirmed seats occupied', async () => {
+  const container = await new PostgreSqlContainer(
+    'postgres:16.10-alpine',
+  ).start();
+  const databaseUrl = container.getConnectionUri();
+  const database = createDatabase(loadConfig({ DATABASE_URL: databaseUrl }));
+  try {
+    await execFileAsync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrl,
+        DIRECT_URL: '',
+        DB_SSL: 'false',
+      },
+      timeout: 60_000,
+    });
+    await seedCinema(database);
+    const screening = await database.screening.findFirstOrThrow({
+      where: { auditorium: { cinemaId: demoCinemaId }, status: 'PUBLISHED' },
+      orderBy: { startsAt: 'asc' },
+    });
+    const seats = await database.seat.findMany({
+      where: { auditoriumId: screening.auditoriumId },
+      orderBy: [{ rowLabel: 'asc' }, { seatNumber: 'asc' }],
+      take: 6,
+    });
+    const first = await database.user.create({
+      data: { email: 'settle.first@example.com', passwordHash: 'test only' },
+    });
+    const second = await database.user.create({
+      data: { email: 'settle.second@example.com', passwordHash: 'test only' },
+    });
+    const repository = createCinemaBookingRepository(database);
+    const settlement = createCinemaHoldSettlementRepository(database);
+    expect(
+      (
+        await settlement.confirmOwnedSeats(
+          '00000000-0000-4000-8000-000000000000',
+        )
+      ).status,
+    ).toBe('not-found');
+    const created = await repository.hold(
+      first.id,
+      demoCinemaId,
+      screening.id,
+      [seats[0]!.id, seats[1]!.id],
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+    );
+    expect(created.status).toBe('ok');
+    if (created.status !== 'ok') throw new Error('Expected hold');
+    expect(await settlement.confirmOwnedSeats(created.hold.id)).toMatchObject({
+      status: 'confirmed',
+      replayed: false,
+    });
+    expect(await settlement.confirmOwnedSeats(created.hold.id)).toMatchObject({
+      status: 'confirmed',
+      replayed: true,
+    });
+    await expect(
+      database.cinemaHoldSeat.update({
+        where: {
+          holdId_seatId: { holdId: created.hold.id, seatId: seats[0]!.id },
+        },
+        data: { priceMinor: 0 },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      database.cinemaHold.update({
+        where: { id: created.hold.id },
+        data: { totalMinor: 0 },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      database.cinemaHold.update({
+        where: { id: created.hold.id },
+        data: { status: 'EXPIRED' },
+      }),
+    ).rejects.toThrow();
+    await database.cinemaHold.update({
+      where: { id: created.hold.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    expect(
+      (
+        await repository.hold(
+          second.id,
+          demoCinemaId,
+          screening.id,
+          [seats[0]!.id],
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+        )
+      ).status,
+    ).toBe('taken');
+    expect(
+      (
+        await database.cinemaHold.findUniqueOrThrow({
+          where: { id: created.hold.id },
+        })
+      ).status,
+    ).toBe('CONFIRMED');
+
+    const expired = await repository.hold(
+      first.id,
+      demoCinemaId,
+      screening.id,
+      [seats[2]!.id, seats[3]!.id],
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
+    );
+    if (expired.status !== 'ok') throw new Error('Expected hold');
+    await expect(
+      database.cinemaHold.update({
+        where: { id: expired.hold.id },
+        data: { expiresAt: new Date(Date.now() + 1_200_000) },
+      }),
+    ).rejects.toThrow();
+    await database.cinemaHold.update({
+      where: { id: expired.hold.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    const reclaimed = await repository.hold(
+      second.id,
+      demoCinemaId,
+      screening.id,
+      [seats[2]!.id],
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4',
+    );
+    expect(reclaimed.status).toBe('ok');
+    expect((await settlement.confirmOwnedSeats(expired.hold.id)).status).toBe(
+      'expired',
+    );
+    expect(
+      (
+        await database.cinemaHold.findUniqueOrThrow({
+          where: { id: expired.hold.id },
+        })
+      ).status,
+    ).not.toBe('CONFIRMED');
+    expect(
+      (
+        await repository.hold(
+          second.id,
+          demoCinemaId,
+          screening.id,
+          [seats[3]!.id],
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5',
+        )
+      ).status,
+    ).toBe('ok');
+    await expect(
+      database.cinemaHold.update({
+        where: { id: expired.hold.id },
+        data: { status: 'CONFIRMED' },
+      }),
+    ).rejects.toThrow();
+    expect(
+      await database.cinemaHoldSeat.count({
+        where: { holdId: expired.hold.id },
+      }),
+    ).toBe(2);
+
+    const nearExpiry = await repository.hold(
+      first.id,
+      demoCinemaId,
+      screening.id,
+      [seats[4]!.id],
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6',
+    );
+    if (nearExpiry.status !== 'ok') throw new Error('Expected hold');
+    await database.cinemaHold.update({
+      where: { id: nearExpiry.hold.id },
+      data: { expiresAt: new Date(Date.now() + 1500) },
+    });
+    let locked!: () => void;
+    let release!: () => void;
+    const lockReady = new Promise<void>((resolve) => (locked = resolve));
+    const waitForRelease = new Promise<void>((resolve) => (release = resolve));
+    const blocker = database.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Seat" WHERE "id" = ${seats[4]!.id}::uuid FOR UPDATE`;
+      locked();
+      await waitForRelease;
+    });
+    await lockReady;
+    const attempted = settlement.confirmOwnedSeats(nearExpiry.hold.id);
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+    release();
+    await blocker;
+    expect((await attempted).status).toBe('expired');
+    expect(
+      (
+        await repository.hold(
+          second.id,
+          demoCinemaId,
+          screening.id,
+          [seats[4]!.id],
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7',
+        )
+      ).status,
+    ).toBe('ok');
+
+    const app = buildApp({
+      checkDatabase: async () => true,
+      auth: createAuthRepository(database),
+      cinemaBookings: repository,
+    });
+    try {
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: `/cinema-holds/${created.hold.id}/confirm`,
+          })
+        ).statusCode,
+      ).toBe(404);
+    } finally {
+      await app.close();
+    }
+  } finally {
+    await database.$disconnect();
+    await container.stop();
+  }
+}, 120_000);

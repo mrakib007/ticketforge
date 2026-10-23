@@ -1,6 +1,6 @@
 # Cinema checkout state machine (design; not implemented)
 
-This is the design for a **fictional, USD, Stripe-test-mode-only** cinema checkout. The browser now creates temporary holds and the old free-reservation POST is disabled; existing free bookings remain readable and occupied. No Stripe payment or paid booking exists yet. Never advertise a paid checkout until payment and recovery are working.
+This is the design for a **fictional, USD, Stripe-test-mode-only** cinema checkout. The browser now creates temporary holds and the old free-reservation POST is disabled; existing free bookings remain readable and occupied. An internal PostgreSQL inventory transition can confirm seats if they are still owned and unexpired, with a database trigger enforcing the guard; it is **not exposed via HTTP and does not verify payment**. No Stripe payment or paid booking exists yet. Never advertise a paid checkout until payment and recovery are working.
 
 ## Ownership and time
 

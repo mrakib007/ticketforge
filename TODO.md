@@ -14,6 +14,8 @@ Dependency audit (2026-10-24): `npm audit --omit=dev --audit-level=high` reports
 
 Current verification baseline (2026-10-24): Prisma validation, typecheck, lint, format, unit tests, PostgreSQL and Redis integration tests, builds and browser hold-flow tests pass **for the unpaid hold cutover only**. None of the paid-checkout gates above are complete.
 
+Inventory groundwork (2026-10-24): an internal atomic confirmation routine and PostgreSQL update guards now reject expired, reclaimed or partial seat selections and prevent releasing confirmed seats. It has **no public route or payment proof**. Do not treat this as paid checkout: verified provider events, payment records, late-payment refunds/reconciliation and ticket issuance are still required.
+
 ## Next product milestones
 
 - Durable booking intents: store pending attempts in PostgreSQL for recovery across tabs/devices without holding seats; test lost responses and concurrent confirmation.
