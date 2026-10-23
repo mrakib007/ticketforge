@@ -351,6 +351,162 @@ it('runs Prisma migrations repeatedly and reports ready against PostgreSQL', asy
         },
       }),
     ).rejects.toThrow();
+    // Legacy free reservations remain occupied; holds are temporary, priced
+    // snapshots and cannot silently turn into confirmed bookings.
+    const holdUrl = `/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}/holds`;
+    const holdRequest = (ids: string[], key: string, auth: string) =>
+      app.inject({
+        method: 'POST',
+        url: holdUrl,
+        headers: { authorization: `Bearer ${auth}`, 'idempotency-key': key },
+        payload: { seatIds: ids },
+      });
+    const third = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: 'hold.third@example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    const fourth = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email: 'hold.fourth@example.com',
+        password: 'correct horse battery staple',
+      },
+    });
+    const thirdToken = third.json().token as string;
+    const fourthToken = fourth.json().token as string;
+    expect(
+      (
+        await holdRequest(
+          [seatIds[35]!],
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee40',
+          token,
+        )
+      ).json().error,
+    ).toMatch(/Maximum 10/);
+    const holdKey = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee41';
+    const lastSeat = seatIds[35]!;
+    const racing = await Promise.all([
+      holdRequest([lastSeat], holdKey, thirdToken),
+      holdRequest(
+        [lastSeat],
+        'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee42',
+        fourthToken,
+      ),
+    ]);
+    expect(racing.map((response) => response.statusCode).sort()).toEqual([
+      201, 409,
+    ]);
+    const winner = racing[0]!.statusCode === 201 ? racing[0]! : racing[1]!;
+    const winnerToken =
+      racing[0]!.statusCode === 201 ? thirdToken : fourthToken;
+    const loserToken = winnerToken === thirdToken ? fourthToken : thirdToken;
+    const winnerKey =
+      winnerToken === thirdToken
+        ? holdKey
+        : 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee42';
+    const hold = winner.json() as {
+      id: string;
+      status: string;
+      expiresAt: string;
+      totalMinor: number;
+    };
+    expect(hold.status).toBe('HOLDING');
+    expect(hold.totalMinor).toBe(1200);
+    expect(Date.parse(hold.expiresAt) - Date.now()).toBeGreaterThan(590_000);
+    expect(
+      (await holdRequest([lastSeat], winnerKey, winnerToken)).statusCode,
+    ).toBe(200);
+    expect(
+      (await holdRequest([seatIds[36]!], winnerKey, winnerToken)).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await holdRequest(
+          [seatIds[0]!],
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee43',
+          loserToken,
+        )
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await holdRequest(
+          [lastSeat, seatIds[37]!],
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee44',
+          loserToken,
+        )
+      ).statusCode,
+    ).toBe(409);
+    const blockedLegacy = await reserve(
+      [lastSeat],
+      'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee47',
+      { authorization: `Bearer ${loserToken}` },
+    );
+    expect(blockedLegacy.statusCode, blockedLegacy.body).toBe(409);
+    expect(
+      (
+        await app.inject({
+          url: `/cinema-holds/${hold.id}`,
+          headers: { authorization: `Bearer ${loserToken}` },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (await app.inject(`/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}`))
+        .json()
+        .seats.find((seat: { id: string }) => seat.id === lastSeat).booked,
+    ).toBe(true);
+    await database.cinemaHold.update({
+      where: { id: hold.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    expect(
+      (
+        await app.inject({
+          url: `/cinema-holds/${hold.id}`,
+          headers: { authorization: `Bearer ${winnerToken}` },
+        })
+      ).json().status,
+    ).toBe('EXPIRED');
+    expect(
+      (
+        await holdRequest(
+          [lastSeat],
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee45',
+          loserToken,
+        )
+      ).statusCode,
+    ).toBe(201);
+    expect(
+      (await holdRequest([lastSeat], winnerKey, winnerToken)).json().status,
+    ).toBe('EXPIRED');
+    expect(
+      (await app.inject(`/cinemas/${demoCinemaId}/screenings/${shows[0]!.id}`))
+        .json()
+        .seats.find((seat: { id: string }) => seat.id === seatIds[0]).booked,
+    ).toBe(true);
+    const otherShowHold = await app.inject({
+      method: 'POST',
+      url: `/cinemas/${demoCinemaId}/screenings/${shows[1]!.id}/holds`,
+      headers: {
+        authorization: `Bearer ${winnerToken}`,
+        'idempotency-key': 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeee46',
+      },
+      payload: { seatIds: [lastSeat] },
+    });
+    expect(otherShowHold.statusCode, otherShowHold.body).toBe(201);
+    await database.session.deleteMany({
+      where: {
+        userId: {
+          in: [third.json().user.id as string, fourth.json().user.id as string],
+        },
+      },
+    });
     const storedSession = await database.session.findFirstOrThrow();
     expect(storedSession.tokenHash).not.toBe(token);
     expect(storedSession.tokenHash).toMatch(/^[a-f0-9]{64}$/);

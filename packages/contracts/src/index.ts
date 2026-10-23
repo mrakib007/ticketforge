@@ -105,3 +105,18 @@ export interface PublicCinemaBookingReceipt extends PublicCinemaBooking {
   startsAt: string;
   seats: { rowLabel: string; seatNumber: number }[];
 }
+
+export interface PublicCinemaHold {
+  id: string;
+  screeningId: string;
+  seatIds: string[];
+  status:
+    | 'HOLDING'
+    | 'EXPIRED'
+    | 'PAYMENT_FAILED'
+    | 'CONFIRMED'
+    | 'PAID_UNFULFILLED';
+  expiresAt: string;
+  totalMinor: number;
+  currency: string;
+}
